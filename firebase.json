@@ -1,0 +1,8 @@
+{
+  "firestore": {
+    "database": "skatehubba",
+    "location": "nam5",
+    "rules": "infra/firebase/firestore.rules",
+    "indexes": "firestore.indexes.json"
+  }
+}
