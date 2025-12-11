@@ -27,13 +27,10 @@ export default function HomeScreen() {
 
     const gamesRef = collection(firestore, "games");
     
-    // Query for games where user is challengerId OR defenderId
+    // Query for games where user is in players array
     const q = query(
       gamesRef, 
-      or(
-        where("challengerId", "==", currentUser.uid),
-        where("defenderId", "==", currentUser.uid)
-      )
+      where("players", "array-contains", currentUser.uid)
     );
 
     const unsubscribeGames = onSnapshot(q, (snapshot) => {
@@ -41,8 +38,12 @@ export default function HomeScreen() {
       snapshot.forEach((doc) => {
         gamesData.push({ id: doc.id, ...doc.data() } as Game);
       });
-      // Sort by updatedAt desc locally
-      gamesData.sort((a, b) => b.updatedAt - a.updatedAt);
+      // Sort by lastActionAt desc locally
+      gamesData.sort((a, b) => {
+        const timeA = a.lastActionAt?.toMillis ? a.lastActionAt.toMillis() : 0;
+        const timeB = b.lastActionAt?.toMillis ? b.lastActionAt.toMillis() : 0;
+        return timeB - timeA;
+      });
       setGames(gamesData);
       setLoading(false);
     }, (error) => {
@@ -59,15 +60,12 @@ export default function HomeScreen() {
 
   const getOpponentId = (game: Game) => {
     if (!currentUser) return "";
-    return game.challengerId === currentUser.uid ? game.defenderId : game.challengerId;
+    return game.players.find(p => p !== currentUser.uid) || "Unknown";
   };
 
   const isMyTurn = (game: Game) => {
     if (!currentUser) return false;
-    return (
-      (game.currentTurn === "CHALLENGER" && currentUser.uid === game.challengerId) ||
-      (game.currentTurn === "DEFENDER" && currentUser.uid === game.defenderId)
-    );
+    return game.state.turn === currentUser.uid;
   };
 
   if (loading) {
@@ -121,7 +119,7 @@ export default function HomeScreen() {
                     styles.statusText,
                     isMyTurn(game) ? { color: '#000' } : { color: '#fff' }
                   ]}>
-                    {game.status === "finished" 
+                    {game.state.status === "COMPLETED" 
                       ? "FINISHED" 
                       : isMyTurn(game) ? "YOUR TURN" : "THEIR TURN"}
                   </Text>

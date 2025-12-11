@@ -1,57 +1,65 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { auth } from "@utils/auth";
 import { onAuthStateChanged, User } from "firebase/auth";
-import { createGame } from "./lib/gameService";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { auth } from "@utils/auth";
+import { firestore } from "@utils/firebaseClient";
+import AuthButton from "../components/AuthButton";
 
-export default function HomePage() {
+export default function ProfilePage() {
   const router = useRouter();
-
   const [user, setUser] = useState<User | null>(null);
-  const [loadingUser, setLoadingUser] = useState(true);
+  const [username, setUsername] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
 
-  const [opponentUid, setOpponentUid] = useState("");
-  const [creating, setCreating] = useState(false);
-  const [error, setError] = useState("");
-
-  // Load current user EXACTLY how Profile page does it
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (current) => {
-      setUser(current);
-      setLoadingUser(false);
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (!currentUser) {
+        router.push("/");
+        return;
+      }
+      setUser(currentUser);
+
+      const userRef = doc(firestore, "users", currentUser.uid);
+      const userSnap = await getDoc(userRef);
+
+      if (userSnap.exists()) {
+        setUsername(userSnap.data().displayName || "");
+      }
+      setLoading(false);
     });
-    return () => unsub();
-  }, []);
+    return () => unsubscribe();
+  }, [router]);
 
-  const handleCreateGame = async (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
+    if (!user || !username.trim()) return;
 
-    if (!user) {
-      setError("You must be signed in.");
-      return;
-    }
-
-    if (!opponentUid.trim()) {
-      setError("Enter your friend's UID.");
-      return;
-    }
+    setSaving(true);
+    setMessage("");
 
     try {
-      setCreating(true);
-      const gameId = await createGame(user.uid, opponentUid.trim());
-      router.push(`/game/${gameId}`);
-    } catch (err: any) {
-      console.error(err);
-      setError(err?.message ?? "Failed to create game.");
+      const userRef = doc(firestore, "users", user.uid);
+      await updateDoc(userRef, {
+        displayName: username.trim(),
+        profileCompleted: true,
+      });
+      setMessage("Profile updated successfully! Redirecting...");
+      setTimeout(() => router.push("/"), 1500);
+    } catch (error: unknown) {
+      console.error("Error updating profile:", error);
+      setMessage("Failed to update profile.");
     } finally {
-      setCreating(false);
+      setSaving(false);
     }
   };
 
-  if (loadingUser) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
         Loading...
@@ -60,52 +68,72 @@ export default function HomePage() {
   }
 
   return (
-    <main className="min-h-screen bg-black text-white flex items-center justify-center px-4">
-      <div className="w-full max-w-md border border-gray-800 bg-gray-900/70 p-6 rounded-xl">
-        <h1 className="text-3xl font-bold text-[#39FF14] text-center mb-8 tracking-tight">
-          SkateHubba – Play S.K.A.T.E.
+    <div className="min-h-screen bg-black text-white flex flex-col items-center p-4 relative">
+      <div className="absolute top-4 right-4">
+        <AuthButton />
+      </div>
+
+      <div className="w-full max-w-md mt-20">
+        <h1 className="text-4xl font-bold text-[#39FF14] mb-8 tracking-tighter text-center">
+          EDIT PROFILE
         </h1>
 
-        {!user ? (
-          <p className="text-center text-gray-400 text-sm">
-            Sign in first to start a game.
-          </p>
-        ) : (
-          <form onSubmit={handleCreateGame} className="space-y-6">
+        <div className="bg-gray-900 border border-gray-800 rounded-lg p-6">
+          <div className="flex justify-center mb-6">
+            {user?.photoURL ? (
+              <Image
+                src={user.photoURL}
+                alt="Profile"
+                width={96}
+                height={96}
+                className="w-24 h-24 rounded-full border-2 border-[#39FF14] object-cover"
+              />
+            ) : (
+              <div className="w-24 h-24 rounded-full bg-gray-800 border-2 border-gray-700 flex items-center justify-center text-2xl">
+                ?
+              </div>
+            )}
+          </div>
+
+          <form onSubmit={handleSave} className="space-y-6">
             <div>
-              <label className="block text-gray-400 mb-2 text-sm uppercase tracking-wide font-semibold">
-                Opponent UID
+              <label className="block text-gray-400 mb-2 text-sm font-bold uppercase">
+                Username
               </label>
               <input
                 type="text"
-                value={opponentUid}
-                onChange={(e) => setOpponentUid(e.target.value)}
-                placeholder="Paste your friend's UID"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 className="w-full bg-black border border-gray-700 rounded p-3 text-white focus:border-[#39FF14] outline-none"
+                placeholder="Enter your skater name"
               />
-              <p className="text-xs text-gray-500 mt-1">
-                MVP method: share UID manually from Firestore users collection.
-              </p>
             </div>
 
-            {error && (
-              <p className="text-red-400 text-sm text-center">{error}</p>
+            {message && (
+              <div
+                className={`text-center text-sm ${
+                  message.includes("Failed") ? "text-red-500" : "text-[#39FF14]"
+                }`}
+              >
+                {message}
+              </div>
             )}
 
             <button
               type="submit"
-              disabled={creating}
-              className={`w-full py-3 rounded font-bold uppercase tracking-wider transition-all ${
-                creating
-                  ? "bg-gray-700 text-gray-500 cursor-wait"
-                  : "bg-[#39FF14] text-black hover:bg-[#32cc12]"
-              }`}
+              disabled={saving}
+              className={`w-full py-3 rounded font-bold uppercase tracking-widest transition-all
+                ${
+                  saving
+                    ? "bg-gray-700 text-gray-500 cursor-wait"
+                    : "bg-[#39FF14] text-black hover:bg-[#32cc12]"
+                }`}
             >
-              {creating ? "Creating..." : "Start New Game"}
+              {saving ? "Saving..." : "Save Profile"}
             </button>
           </form>
-        )}
+        </div>
       </div>
-    </main>
+    </div>
   );
 }

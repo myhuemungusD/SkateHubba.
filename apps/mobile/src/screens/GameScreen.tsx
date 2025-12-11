@@ -96,24 +96,24 @@ export default function GameScreen() {
     return () => unsubscribeGame();
   }, [gameId]);
 
-  // Turns Subscription
+  // Rounds Subscription
   useEffect(() => {
     if (!gameId) return;
 
-    const turnsRef = collection(firestore, "turns");
-    const q = query(turnsRef, where("gameId", "==", gameId), orderBy("createdAt", "asc"));
+    const roundsRef = collection(firestore, "games", gameId, "rounds");
+    const q = query(roundsRef, orderBy("index", "desc"));
 
-    const unsubscribeTurns = onSnapshot(q, (querySnap) => {
-      const turnsData: Turn[] = [];
+    const unsubscribeRounds = onSnapshot(q, (querySnap) => {
+      const roundsData: Round[] = [];
       querySnap.forEach((doc) => {
-        turnsData.push(doc.data() as Turn);
+        roundsData.push(doc.data() as Round);
       });
-      setTurns(turnsData);
+      setRounds(roundsData);
     }, (error) => {
-      console.error("Error fetching turns:", error);
+      console.error("Error fetching rounds:", error);
     });
 
-    return () => unsubscribeTurns();
+    return () => unsubscribeRounds();
   }, [gameId]);
 
   if (loading) {
@@ -133,21 +133,13 @@ export default function GameScreen() {
   }
 
   // Calculate Letters
-  const getLetters = (playerId: string) => {
-    return turns
-      .filter((t) => t.playerId === playerId && t.letter)
-      .map((t) => t.letter)
-      .join("");
-  };
+  const getLettersString = (count: number) => "SKATE".substring(0, count);
 
-  const lettersA = getLetters(game.playerA);
-  const lettersB = getLetters(game.playerB);
+  const lettersA = getLettersString(game.state.p1Letters);
+  const lettersB = getLettersString(game.state.p2Letters);
 
   // Determine Turn Status
-  const isMyTurn = currentUser && (
-    (game.currentTurn === "A" && currentUser.uid === game.playerA) ||
-    (game.currentTurn === "B" && currentUser.uid === game.playerB)
-  );
+  const isMyTurn = currentUser && game.state.turn === currentUser.uid;
 
   // Find Last Video
   const lastRound = rounds.length > 0 ? rounds[0] : null;
@@ -157,24 +149,24 @@ export default function GameScreen() {
       {/* Scoreboard */}
       <View style={styles.scoreboard}>
         <View style={styles.playerScore}>
-          <Text style={styles.playerLabel}>CHALLENGER</Text>
-          <Text style={styles.letters}>{lettersA || "SKATE"}</Text>
-          {currentUser?.uid === game.challengerId && <Text style={styles.youLabel}>(YOU)</Text>}
+          <Text style={styles.playerLabel}>PLAYER 1</Text>
+          <Text style={styles.letters}>{lettersA || "-"}</Text>
+          {currentUser?.uid === game.players[0] && <Text style={styles.youLabel}>(YOU)</Text>}
         </View>
 
         <View style={styles.vsContainer}>
           <Text style={styles.vsText}>VS</Text>
           <View style={[styles.statusBadge, isMyTurn ? styles.statusActive : styles.statusWaiting]}>
             <Text style={styles.statusText}>
-              {game.status === "COMPLETED" ? "DONE" : isMyTurn ? "YOUR TURN" : "WAITING"}
+              {game.state.status === "COMPLETED" ? "DONE" : isMyTurn ? "YOUR TURN" : "WAITING"}
             </Text>
           </View>
         </View>
 
         <View style={styles.playerScore}>
-          <Text style={styles.playerLabel}>DEFENDER</Text>
-          <Text style={styles.letters}>{lettersB || "SKATE"}</Text>
-          {currentUser?.uid === game.defenderId && <Text style={styles.youLabel}>(YOU)</Text>}
+          <Text style={styles.playerLabel}>PLAYER 2</Text>
+          <Text style={styles.letters}>{lettersB || "-"}</Text>
+          {currentUser?.uid === game.players[1] && <Text style={styles.youLabel}>(YOU)</Text>}
         </View>
       </View>
 
@@ -205,7 +197,7 @@ export default function GameScreen() {
       </View>
 
       {/* Action Button */}
-      {game.status !== "COMPLETED" && isMyTurn && (
+      {game.state.status !== "COMPLETED" && isMyTurn && (
         <TouchableOpacity
           style={styles.actionButton}
           onPress={() => navigation.navigate("SubmitScreen", { gameId })}
@@ -214,7 +206,7 @@ export default function GameScreen() {
         </TouchableOpacity>
       )}
 
-      {game.status === "COMPLETED" && (
+      {game.state.status === "COMPLETED" && (
         <View style={styles.finishedContainer}>
           <Text style={styles.winnerText}>
             WINNER: {game.winnerId === currentUser?.uid ? "YOU!" : "OPPONENT"}

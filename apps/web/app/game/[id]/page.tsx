@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import {
   collection,
   doc,
@@ -26,7 +26,6 @@ const lettersFromCount = (count: number) => SKATE_STEPS[count] ?? "SKATE";
 
 export default function GamePage() {
   const params = useParams();
-  const router = useRouter();
   const gameId = params.id as string;
 
   const [game, setGame] = useState<Game | null>(null);

@@ -176,8 +176,8 @@ export default function SubmitScreen() {
       if (!gameSnap.exists()) throw new Error("Game not found");
       const game = gameSnap.data() as Game;
 
-      const defenderId = game.challengerId === auth.currentUser.uid ? game.defenderId : game.challengerId;
-      const roundIndex = (game.rounds?.length || 0) + 1;
+      const defenderId = game.players.find(p => p !== auth.currentUser?.uid) || "Unknown";
+      const roundIndex = (game.roundsCount || 0) + 1;
       const roundId = uuidv4();
 
       // const roundData = createRound(

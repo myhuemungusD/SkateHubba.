@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { doc, getDoc } from "firebase/firestore";
 import { onAuthStateChanged, User } from "firebase/auth";
 import AuthButton from "./components/AuthButton";
 import { auth } from "@utils/auth";
+import { firestore } from "@utils/firebaseClient";
 import { createGame } from "./lib/gameService";
 
 export default function HomePage() {
@@ -14,6 +16,8 @@ export default function HomePage() {
   const [opponentUid, setOpponentUid] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [opponentName, setOpponentName] = useState<string | null>(null);
+  const [opponentChecking, setOpponentChecking] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -22,6 +26,42 @@ export default function HomePage() {
     });
     return () => unsubscribe();
   }, []);
+
+  // Resolve opponent display name for confirmation
+  useEffect(() => {
+    const uid = opponentUid.trim();
+    if (!uid) {
+      setOpponentName(null);
+      return;
+    }
+    let cancelled = false;
+    const run = async () => {
+      setOpponentChecking(true);
+      setOpponentName(null);
+      try {
+        const snap = await getDoc(doc(firestore, "users", uid));
+        if (cancelled) return;
+        if (snap.exists()) {
+          setOpponentName(snap.data().displayName || uid);
+        } else {
+          setOpponentName(null);
+        }
+      } catch {
+        if (!cancelled) setOpponentName(null);
+      } finally {
+        if (!cancelled) setOpponentChecking(false);
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [opponentUid]);
+
+  const canCreate = useMemo(
+    () => !!currentUser && !!opponentUid.trim() && opponentUid.trim() !== currentUser?.uid,
+    [currentUser, opponentUid]
+  );
 
   const handleCreateGame = async () => {
     if (!currentUser) {
@@ -89,6 +129,16 @@ export default function HomePage() {
             />
           </label>
 
+          {opponentUid.trim() ? (
+            <div className="text-sm text-gray-400">
+              {opponentChecking
+                ? "Looking up opponent..."
+                : opponentName
+                  ? `Challenging: ${opponentName}`
+                  : "No user found for this UID."}
+            </div>
+          ) : null}
+
           {error && (
             <div className="bg-red-900/30 border border-red-900 text-red-300 text-sm px-4 py-2 rounded">
               {error}
@@ -97,7 +147,7 @@ export default function HomePage() {
 
           <button
             onClick={handleCreateGame}
-            disabled={!currentUser || submitting}
+            disabled={!canCreate || submitting}
             className="w-full bg-[#39FF14] text-black font-bold py-3 rounded-lg hover:bg-[#32cc12] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {currentUser ? (submitting ? "Creating..." : "Start Game") : "Sign in to start"}
