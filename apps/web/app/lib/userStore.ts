@@ -1,8 +1,9 @@
 import { create } from "zustand";
+import type { User } from "firebase/auth";
 
 interface UserState {
-  user: any | null;
-  setUser: (user: any | null) => void;
+  user: User | null;
+  setUser: (user: User | null) => void;
 }
 
 export const useUserStore = create<UserState>((set) => ({

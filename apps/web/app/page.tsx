@@ -154,12 +154,12 @@ export default function Home() {
         </div>
         <div className="flex items-center gap-3">
           {currentUser && (
-            <button
-              onClick={() => setShowDialog(true)}
+            <Link
+              href="/skate/create"
               className="bg-[#39FF14] text-black font-bold px-4 py-2 rounded hover:bg-[#32cc12] transition-colors"
             >
               New Game
-            </button>
+            </Link>
           )}
           <AuthButton />
         </div>

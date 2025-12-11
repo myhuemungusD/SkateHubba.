@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import {
   collection,
   doc,
@@ -17,7 +17,6 @@ import AuthButton from "../../components/AuthButton";
 import {
   acceptGame,
   declineGame,
-  startRoundByAttacker,
   submitDefenderReply,
 } from "../../lib/gameService";
 
@@ -26,6 +25,7 @@ const lettersFromCount = (count: number) => SKATE_STEPS[count] ?? "SKATE";
 
 export default function GamePage() {
   const params = useParams();
+  const router = useRouter();
   const gameId = params.id as string;
 
   const [game, setGame] = useState<Game | null>(null);
@@ -85,8 +85,6 @@ export default function GamePage() {
     [rounds, currentUser]
   );
 
-  const isGameCompleted = game?.state.status === "COMPLETED";
-
   const handleAccept = async () => {
     if (!game || !currentUser) return;
     setActionLoading(true);
@@ -115,17 +113,7 @@ export default function GamePage() {
 
   const handleSetTrick = async () => {
     if (!game || !currentUser) return;
-    const videoUrl = prompt("Enter video URL for your trick");
-    if (!videoUrl) return;
-    setActionLoading(true);
-    try {
-      await startRoundByAttacker(game.id, currentUser.uid, videoUrl);
-    } catch (err) {
-      console.error(err);
-      alert("Failed to start round.");
-    } finally {
-      setActionLoading(false);
-    }
+    router.push(`/skate/${game.id}/submit`);
   };
 
   const handleReply = async () => {

@@ -196,7 +196,7 @@ export async function submitDefenderReply(
     });
 
     // Update Game State
-    const updates: any = {
+    const updates: Record<string, unknown> = {
       lastActionAt: now
     };
 

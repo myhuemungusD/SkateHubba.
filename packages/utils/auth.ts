@@ -3,6 +3,7 @@ import {
   getAuth,
   onAuthStateChanged,
   signInWithPopup,
+  signInAnonymously,
   GoogleAuthProvider,
   signOut,
 } from "firebase/auth";
@@ -16,6 +17,10 @@ export const listenToAuth = (callback: (user: any) => void) => {
 export const signInGoogle = async () => {
   const provider = new GoogleAuthProvider();
   return await signInWithPopup(auth, provider);
+};
+
+export const signInGuest = async () => {
+  return await signInAnonymously(auth);
 };
 
 export const logout = async () => {

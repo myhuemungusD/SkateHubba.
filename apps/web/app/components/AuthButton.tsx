@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { signInGoogle, logout } from "@utils/auth";
+import { signInGoogle, signInGuest, logout } from "@utils/auth";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { auth } from "@utils/auth";
 import { doc, setDoc, getDoc } from "firebase/firestore";
@@ -24,7 +24,7 @@ export default function AuthButton() {
           await setDoc(userRef, {
             uid: currentUser.uid,
             email: currentUser.email,
-            displayName: currentUser.displayName || "Skater",
+            displayName: currentUser.displayName || `Guest-${currentUser.uid.substring(0, 4)}`,
             photoURL: currentUser.photoURL,
             createdAt: Date.now(),
             stats: { wins: 0, losses: 0, streak: 0 },
@@ -57,8 +57,12 @@ export default function AuthButton() {
             <p className="text-sm font-bold text-[#39FF14] group-hover:underline">{user.displayName}</p>
             <p className="text-xs text-gray-500">UID: {user.uid.substring(0, 6)}...</p>
           </div>
-          {user.photoURL && (
+          {user.photoURL ? (
             <img src={user.photoURL} alt="Profile" className="w-8 h-8 rounded-full border border-[#333]" />
+          ) : (
+            <div className="w-8 h-8 rounded-full bg-gray-800 border border-gray-700 flex items-center justify-center text-xs font-bold text-gray-400">
+              {user.displayName?.[0] || "G"}
+            </div>
           )}
         </a>
         <button
@@ -71,21 +75,38 @@ export default function AuthButton() {
     );
   }
 
-  const handleLogin = async () => {
+  const handleGoogleLogin = async () => {
     try {
       await signInGoogle();
     } catch (error) {
-      console.error("Login failed:", error);
+      console.error("Google Login failed:", error);
       alert(`Login failed: ${(error as Error).message}`);
     }
   };
 
+  const handleGuestLogin = async () => {
+    try {
+      await signInGuest();
+    } catch (error) {
+      console.error("Guest Login failed:", error);
+      alert(`Guest login failed: ${(error as Error).message}`);
+    }
+  };
+
   return (
-    <button
-      onClick={handleLogin}
-      className="bg-white text-black font-bold py-2 px-4 rounded hover:bg-gray-200 transition-colors"
-    >
-      Sign In with Google
-    </button>
+    <div className="flex gap-2">
+      <button
+        onClick={handleGuestLogin}
+        className="bg-gray-800 text-white font-bold px-4 py-2 rounded hover:bg-gray-700 transition-colors border border-gray-700"
+      >
+        Guest
+      </button>
+      <button
+        onClick={handleGoogleLogin}
+        className="bg-white text-black font-bold px-4 py-2 rounded hover:bg-gray-200 transition-colors"
+      >
+        Google
+      </button>
+    </div>
   );
 }
