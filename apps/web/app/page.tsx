@@ -10,6 +10,8 @@ import { firestore } from "@utils/firebaseClient";
 import { createGame } from "./lib/gameService";
 import { useOpponentLookup } from "../hooks/useOpponentLookup";
 import { useUserSearch, UserProfile } from "../hooks/useUserSearch";
+import { useMatchStore } from "../store/useMatchmaking";
+import { listenForLobby } from "./lib/listenForLobby";
 
 type RecentOpponent = {
   uid: string;
@@ -27,9 +29,11 @@ export default function HomePage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [lobbyListenerUnsub, setLobbyListenerUnsub] = useState<null | (() => void)>(null);
   
   const { opponentName, opponentChecking } = useOpponentLookup(opponentUid);
   const { results: searchResults, loading: searchLoading } = useUserSearch(searchTerm);
+  const match = useMatchStore();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -122,6 +126,31 @@ export default function HomePage() {
     }
   };
 
+  // Listen for lobby assignment when logged in
+  useEffect(() => {
+    if (!currentUser) {
+      if (lobbyListenerUnsub) {
+        lobbyListenerUnsub();
+        setLobbyListenerUnsub(null);
+      }
+      return;
+    }
+    const unsub = listenForLobby(currentUser.uid);
+    setLobbyListenerUnsub(() => unsub);
+    return () => unsub();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser]);
+
+  const handleStartMatchmaking = async () => {
+    if (!currentUser) return;
+    await match.startMatch(currentUser.uid, "SKATE");
+  };
+
+  const handleCancelMatchmaking = async () => {
+    if (!currentUser) return;
+    await match.cancelMatch(currentUser.uid);
+  };
+
   const canCreate = useMemo(
     () => !!currentUser && !!opponentUid.trim() && opponentUid.trim() !== currentUser?.uid,
     [currentUser, opponentUid]
@@ -199,6 +228,45 @@ export default function HomePage() {
         </div>
 
         <div className="space-y-4">
+          {/* Matchmaking quick actions */}
+          {currentUser && (
+            <div className="bg-gray-800/60 border border-gray-700 rounded-lg p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-300">Quick Match (SKATE)</span>
+                {match.searching ? (
+                  <span className="text-xs text-yellow-300">Searching...</span>
+                ) : match.lobbyId ? (
+                  <span className="text-xs text-[#39FF14]">Matched</span>
+                ) : (
+                  <span className="text-xs text-gray-500">Idle</span>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleStartMatchmaking}
+                  disabled={match.searching || !!match.lobbyId}
+                  className="flex-1 bg-blue-600 text-white text-sm font-bold py-2 rounded disabled:opacity-50"
+                >
+                  {match.searching ? "Searching..." : "Start Matchmaking"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancelMatchmaking}
+                  disabled={!match.searching && !match.ticketId}
+                  className="text-sm px-3 py-2 rounded border border-gray-700 text-gray-300 hover:border-red-500 hover:text-red-400 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
+              {match.lobbyId && (
+                <div className="text-xs text-[#39FF14]">
+                  Lobby ready: {match.lobbyId}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="space-y-2">
             <label className="block text-sm font-medium text-gray-300">
               Search by name
