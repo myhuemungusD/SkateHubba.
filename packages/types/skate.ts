@@ -12,6 +12,7 @@ export type Game = {
   createdAt: any;       // Firestore Timestamp type
   lastActionAt: any;
   roundsCount?: number; // Tracks number of rounds to avoid querying in transactions
+  openRoundId?: string | null; // Currently open defender round (AWAITING_DEFENDER)
   state: GameState;
   winnerId?: string | null;
   finishedAt?: any | null;

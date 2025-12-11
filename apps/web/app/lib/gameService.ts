@@ -2,6 +2,13 @@ import { doc, setDoc, runTransaction, Timestamp } from "firebase/firestore";
 import { firestore } from "@utils/firebaseClient";
 import { Game, Round } from "@skatehubba/types";
 import { v4 as uuidv4 } from "uuid";
+import {
+  assertCanAcceptGame,
+  assertCanCreateGame,
+  assertCanDeclineGame,
+  assertCanSetTrick,
+  assertCanSubmitReply,
+} from "./gameGuards";
 
 const GAMES_COLLECTION = "games";
 
@@ -9,6 +16,8 @@ const GAMES_COLLECTION = "games";
  * Creates a new Game in Firestore.
  */
 export async function createGame(challengerId: string, defenderId: string): Promise<string> {
+  assertCanCreateGame(challengerId, defenderId);
+
   const gameId = uuidv4();
   const now = Timestamp.now();
 
@@ -19,6 +28,7 @@ export async function createGame(challengerId: string, defenderId: string): Prom
     createdAt: now,
     lastActionAt: now,
     roundsCount: 0,
+    openRoundId: null,
     state: {
       p1Letters: 0,
       p2Letters: 0,
@@ -47,15 +57,7 @@ export async function acceptGame(gameId: string, defenderId: string): Promise<vo
 
     const game = gameSnap.data() as Game;
 
-    // Validation
-    if (game.state.status !== "PENDING_ACCEPT") {
-      throw new Error("Game is not pending acceptance");
-    }
-    
-    // Ensure defender is actually one of the players (and not the creator, usually)
-    if (!game.players.includes(defenderId)) {
-      throw new Error("User is not a player in this game");
-    }
+    assertCanAcceptGame(game, defenderId);
 
     transaction.update(gameRef, {
       "state.status": "ACTIVE",
@@ -78,9 +80,7 @@ export async function declineGame(gameId: string, defenderId: string): Promise<v
 
     const game = gameSnap.data() as Game;
 
-    if (!game.players.includes(defenderId)) {
-      throw new Error("User is not a player in this game");
-    }
+    assertCanDeclineGame(game, defenderId);
 
     transaction.update(gameRef, {
       "state.status": "DECLINED",
@@ -109,13 +109,7 @@ export async function startRoundByAttacker(
 
     const game = gameSnap.data() as Game;
 
-    // Validate Game State
-    if (game.state.status !== "ACTIVE") {
-      throw new Error("Game is not active");
-    }
-    if (game.state.turn !== attackerId) {
-      throw new Error("It is not your turn");
-    }
+    assertCanSetTrick(game, attackerId);
 
     // Determine defender
     const defenderId = game.players.find(p => p !== attackerId);
@@ -146,7 +140,8 @@ export async function startRoundByAttacker(
     // Update Game
     transaction.update(gameRef, {
       lastActionAt: now,
-      roundsCount: nextIndex
+      roundsCount: nextIndex,
+      openRoundId: roundId
     });
   });
 
@@ -178,13 +173,7 @@ export async function submitDefenderReply(
     const game = gameSnap.data() as Game;
     const round = roundSnap.data() as Round;
 
-    // Validate
-    if (round.status !== "AWAITING_DEFENDER") {
-      throw new Error("Round is not awaiting defender");
-    }
-    if (round.defenderId !== defenderId) {
-      throw new Error("Not the defender for this round");
-    }
+    assertCanSubmitReply(game, round, defenderId);
 
     // Update Round
     const defenderResult = didMake ? "MAKE" : "BAIL";
@@ -263,6 +252,7 @@ export async function submitDefenderReply(
       if (finishedAt) updates.finishedAt = finishedAt;
     }
 
+    updates["openRoundId"] = null;
     transaction.update(gameRef, updates);
   });
 }
