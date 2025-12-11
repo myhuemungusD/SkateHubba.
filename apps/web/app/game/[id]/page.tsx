@@ -23,6 +23,33 @@ import {
 
 const SKATE_STEPS = ["-", "S", "SK", "SKA", "SKAT", "SKATE"];
 const lettersFromCount = (count: number) => SKATE_STEPS[count] ?? "SKATE";
+const toDate = (value: unknown) => {
+  if (!value) return null;
+  if (typeof (value as { toDate?: () => Date }).toDate === "function") {
+    return (value as { toDate: () => Date }).toDate();
+  }
+  if (typeof value === "number") return new Date(value);
+  return null;
+};
+const formatRelative = (date: Date | null) => {
+  if (!date) return "-";
+  const diff = Date.now() - date.getTime();
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+};
+const isValidHttpUrl = (value: string) => {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+};
 
 export default function GamePage() {
   const params = useParams();
@@ -33,6 +60,10 @@ export default function GamePage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [formMode, setFormMode] = useState<"none" | "set" | "reply">("none");
+  const [videoUrl, setVideoUrl] = useState("");
+  const [didMake, setDidMake] = useState(true);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
 
   // Auth subscription
   useEffect(() => {
@@ -119,38 +150,40 @@ export default function GamePage() {
     }
   };
 
-  const handleSetTrick = async () => {
-    if (!game || !currentUser) return;
-    const videoUrl = prompt("Enter video URL for your trick");
-    if (!videoUrl) return;
-    setActionLoading(true);
-    try {
-      await startRoundByAttacker(game.id, currentUser.uid, videoUrl);
-    } catch (err) {
-      console.error(err);
-      alert("Failed to start round.");
-    } finally {
-      setActionLoading(false);
-    }
+  const resetForm = () => {
+    setFormMode("none");
+    setVideoUrl("");
+    setDidMake(true);
   };
 
-  const handleReply = async () => {
-    if (!game || !currentUser || !pendingReplyRound) return;
-    const videoUrl = prompt("Enter your reply video URL");
-    if (!videoUrl) return;
-    const didMake = confirm("Did you make the trick? OK = Yes, Cancel = No");
+  const submitVideo = async () => {
+    if (!game || !currentUser) return;
+    if (!isValidHttpUrl(videoUrl.trim())) {
+      setActionMessage("Enter a valid http/https video URL.");
+      return;
+    }
+
     setActionLoading(true);
+    setActionMessage(null);
     try {
-      await submitDefenderReply(
-        game.id,
-        pendingReplyRound.id,
-        currentUser.uid,
-        videoUrl,
-        didMake
-      );
+      if (formMode === "set") {
+        await startRoundByAttacker(game.id, currentUser.uid, videoUrl.trim());
+        setActionMessage("Trick submitted.");
+      }
+      if (formMode === "reply" && pendingReplyRound) {
+        await submitDefenderReply(
+          game.id,
+          pendingReplyRound.id,
+          currentUser.uid,
+          videoUrl.trim(),
+          didMake
+        );
+        setActionMessage("Reply submitted.");
+      }
+      resetForm();
     } catch (err) {
       console.error(err);
-      alert("Failed to submit reply.");
+      setActionMessage("Failed to submit. Please try again.");
     } finally {
       setActionLoading(false);
     }
@@ -187,7 +220,7 @@ export default function GamePage() {
       if (game.state.turn === currentUser.uid && !pendingReplyRound) {
         return (
           <button
-            onClick={handleSetTrick}
+            onClick={() => setFormMode("set")}
             disabled={actionLoading}
             className="px-6 py-3 bg-orange-600 text-white font-bold rounded hover:bg-orange-700"
           >
@@ -199,7 +232,7 @@ export default function GamePage() {
       if (pendingReplyRound) {
         return (
           <button
-            onClick={handleReply}
+            onClick={() => setFormMode("reply")}
             disabled={actionLoading}
             className="px-6 py-3 bg-blue-600 text-white font-bold rounded hover:bg-blue-700"
           >
@@ -253,10 +286,17 @@ export default function GamePage() {
 
   return (
     <div className="min-h-screen bg-black text-white p-6">
+      {actionMessage && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 bg-gray-900 border border-gray-800 text-sm px-4 py-2 rounded shadow">
+          {actionMessage}
+        </div>
+      )}
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-[#39FF14]">Game Control</h1>
-          <p className="text-gray-500 text-sm">Status: {game.state.status}</p>
+          <p className="text-gray-500 text-sm">
+            Status: {game.state.status} · Updated {formatRelative(toDate(game.lastActionAt))}
+          </p>
         </div>
         <AuthButton />
       </div>
@@ -285,13 +325,86 @@ export default function GamePage() {
         </div>
 
         {/* Primary action */}
-        <div className="bg-gray-900 border border-gray-800 rounded-lg p-6 flex items-center justify-center">
-          {renderPrimaryAction()}
+          <div className="bg-gray-900 border border-gray-800 rounded-lg p-6 flex items-center justify-center">
+            {renderPrimaryAction()}
+          </div>
+          {formMode !== "none" && (
+            <div className="bg-gray-900 border border-gray-800 rounded-lg p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-gray-400">
+                  {formMode === "set" ? "Submit your trick video" : "Reply to trick"}
+                </p>
+                <button
+                  onClick={resetForm}
+                  className="text-xs text-gray-500 hover:text-white"
+                  disabled={actionLoading}
+                >
+                  Cancel
+                </button>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs text-gray-500">Video URL (https)</label>
+                <input
+                  value={videoUrl}
+                  onChange={(e) => setVideoUrl(e.target.value)}
+                  placeholder="https://example.com/clip.mp4"
+                  className="w-full bg-black border border-gray-700 rounded px-3 py-2 text-white focus:border-[#39FF14] outline-none"
+                />
+                {videoUrl && isValidHttpUrl(videoUrl.trim()) ? (
+                  <a
+                    href={videoUrl.trim()}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs text-[#39FF14] hover:underline"
+                  >
+                    Preview link
+                  </a>
+                ) : null}
+              </div>
+              {formMode === "reply" && (
+                <div className="flex gap-3 text-sm">
+                  <button
+                    type="button"
+                    onClick={() => setDidMake(true)}
+                    className={`px-3 py-2 rounded border ${
+                      didMake
+                        ? "border-[#39FF14] text-[#39FF14]"
+                        : "border-gray-700 text-gray-400"
+                    }`}
+                  >
+                    I made it
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDidMake(false)}
+                    className={`px-3 py-2 rounded border ${
+                      !didMake
+                        ? "border-red-500 text-red-400"
+                        : "border-gray-700 text-gray-400"
+                    }`}
+                  >
+                    I bailed
+                  </button>
+                </div>
+              )}
+              {actionMessage && (
+                <div className="text-sm text-yellow-200 bg-yellow-900/20 border border-yellow-900 rounded px-3 py-2">
+                  {actionMessage}
+                </div>
+              )}
+              <button
+                onClick={submitVideo}
+                disabled={actionLoading}
+                className="w-full bg-[#39FF14] text-black font-bold py-2 rounded hover:bg-[#32cc12] disabled:opacity-50"
+              >
+                {actionLoading ? "Submitting..." : "Submit"}
+              </button>
+            </div>
+          )}
         </div>
-      </div>
 
-      {/* Rounds list */}
-      <div className="mt-8">
+        {/* Rounds list */}
+        <div className="mt-8">
         <h3 className="text-sm font-semibold text-gray-300 mb-3">Rounds</h3>
         {rounds.length === 0 ? (
           <p className="text-gray-600 text-sm">No rounds yet.</p>
@@ -311,6 +424,9 @@ export default function GamePage() {
                   <p className="text-xs text-gray-500">Round</p>
                   <p className="font-semibold">#{round.index}</p>
                   <p className="text-xs text-gray-500 mt-1">Status: {round.status}</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Created {formatRelative(toDate(round.createdAt))}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">Attacker Video</p>
