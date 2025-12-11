@@ -5,7 +5,7 @@ import Image from "next/image";
 import { signInGoogle, signInGuest, logout } from "@utils/auth";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { auth } from "@utils/auth";
-import { doc, setDoc, getDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc, updateDoc } from "firebase/firestore";
 import { firestore } from "@utils/firebaseClient";
 
 export default function AuthButton() {
@@ -39,7 +39,12 @@ export default function AuthButton() {
             }
           } else {
             // Check if profile is completed (has custom username)
-            const userData = userSnap.data();
+            const userData = userSnap.data() as Record<string, unknown>;
+            if (!userData.displayNameLower && userData.displayName) {
+              await updateDoc(userRef, {
+                displayNameLower: String(userData.displayName).toLowerCase(),
+              });
+            }
             if (!userData.profileCompleted && window.location.pathname !== "/profile") {
               window.location.href = "/profile";
             }

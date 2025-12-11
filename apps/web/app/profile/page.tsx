@@ -47,6 +47,7 @@ export default function ProfilePage() {
       const userRef = doc(firestore, "users", user.uid);
       await updateDoc(userRef, {
         displayName: username.trim(),
+        displayNameLower: username.trim().toLowerCase(),
         profileCompleted: true,
       });
       setMessage("Profile updated successfully! Redirecting...");
