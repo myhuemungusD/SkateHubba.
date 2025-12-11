@@ -351,14 +351,24 @@ export default function GamePage() {
                   className="w-full bg-black border border-gray-700 rounded px-3 py-2 text-white focus:border-[#39FF14] outline-none"
                 />
                 {videoUrl && isValidHttpUrl(videoUrl.trim()) ? (
-                  <a
-                    href={videoUrl.trim()}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-xs text-[#39FF14] hover:underline"
-                  >
-                    Preview link
-                  </a>
+                  <div className="space-y-2">
+                    <a
+                      href={videoUrl.trim()}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs text-[#39FF14] hover:underline"
+                    >
+                      Open link
+                    </a>
+                    <div className="bg-black border border-gray-800 rounded overflow-hidden">
+                      <video
+                        src={videoUrl.trim()}
+                        controls
+                        muted
+                        className="w-full max-h-64 object-contain"
+                      />
+                    </div>
+                  </div>
                 ) : null}
               </div>
               {formMode === "reply" && (
