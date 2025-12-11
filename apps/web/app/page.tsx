@@ -13,6 +13,7 @@ export default function HomePage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [opponentUid, setOpponentUid] = useState("");
+  const [recentOpponents, setRecentOpponents] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -25,6 +26,35 @@ export default function HomePage() {
     });
     return () => unsubscribe();
   }, []);
+
+  // Load recent opponents from localStorage
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const stored = window.localStorage.getItem("recentOpponents");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          setRecentOpponents(parsed.slice(0, 5));
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const rememberOpponent = (uid: string) => {
+    if (typeof window === "undefined") return;
+    const trimmed = uid.trim();
+    if (!trimmed) return;
+    const next = [trimmed, ...recentOpponents.filter((u) => u !== trimmed)].slice(0, 5);
+    setRecentOpponents(next);
+    try {
+      window.localStorage.setItem("recentOpponents", JSON.stringify(next));
+    } catch {
+      // ignore
+    }
+  };
 
   const canCreate = useMemo(
     () => !!currentUser && !!opponentUid.trim() && opponentUid.trim() !== currentUser?.uid,
@@ -50,6 +80,7 @@ export default function HomePage() {
     setError(null);
     try {
       const gameId = await createGame(currentUser.uid, trimmedOpponent);
+      rememberOpponent(trimmedOpponent);
       router.push(`/game/${gameId}`);
     } catch (err) {
       console.error("Failed to create game", err);
@@ -122,6 +153,24 @@ export default function HomePage() {
                   : "No user found for this UID."}
             </div>
           ) : null}
+
+          {recentOpponents.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs text-gray-500">Recent opponents</p>
+              <div className="flex flex-wrap gap-2">
+                {recentOpponents.map((uid) => (
+                  <button
+                    key={uid}
+                    type="button"
+                    onClick={() => setOpponentUid(uid)}
+                    className="px-3 py-1 text-xs rounded border border-gray-700 text-gray-300 hover:border-[#39FF14]"
+                  >
+                    {uid}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {error && (
             <div className="bg-red-900/30 border border-red-900 text-red-300 text-sm px-4 py-2 rounded">

@@ -4,5 +4,8 @@
     "location": "nam5",
     "rules": "infra/firebase/firestore.rules",
     "indexes": "firestore.indexes.json"
+  },
+  "storage": {
+    "rules": "infra/firebase/storage.rules"
   }
 }

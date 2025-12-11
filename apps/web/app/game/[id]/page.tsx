@@ -38,7 +38,6 @@ export default function GamePage() {
   const [formMode, setFormMode] = useState<"none" | "set" | "reply">("none");
   const [didMake, setDidMake] = useState(true);
   const [actionMessage, setActionMessage] = useState<{ text: string; tone?: "info" | "error" } | null>(null);
-  const [uploading, setUploading] = useState(false);
 
   // Auth subscription
   useEffect(() => {
@@ -136,6 +135,12 @@ export default function GamePage() {
     if (!game || !currentUser) return;
     if (!videoFile) {
       setActionMessage({ text: "Please select a video file.", tone: "error" });
+      return;
+    }
+
+    // 100MB Limit
+    if (videoFile.size > 100 * 1024 * 1024) {
+      setActionMessage({ text: "File too large. Max 100MB.", tone: "error" });
       return;
     }
 
@@ -283,9 +288,19 @@ export default function GamePage() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-[#39FF14]">Game Control</h1>
-          <p className="text-gray-500 text-sm">
-            Status: {game.state.status} · Updated {formatRelative(toDate(game.lastActionAt))}
-          </p>
+          <div className="flex items-center gap-2 text-gray-500 text-sm">
+            <p>Status: {game.state.status}</p>
+            <span>·</span>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(window.location.href);
+                alert("Game link copied!");
+              }}
+              className="hover:text-white underline"
+            >
+              Copy Link
+            </button>
+          </div>
         </div>
         <AuthButton />
       </div>
