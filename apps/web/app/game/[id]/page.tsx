@@ -355,17 +355,6 @@ export default function GamePage() {
                   onChange={(e) => setVideoFile(e.target.files?.[0] || null)}
                   className="w-full bg-black border border-gray-700 rounded px-3 py-2 text-white focus:border-[#39FF14] outline-none"
                 />
-                {formMode === "set" && (
-                  <div className="mt-2">
-                    <label className="text-xs text-gray-500">Trick Name (Optional)</label>
-                    <input
-                      value={trickName}
-                      onChange={(e) => setTrickName(e.target.value)}
-                      placeholder="e.g. Kickflip"
-                      className="w-full bg-black border border-gray-700 rounded px-3 py-2 text-white focus:border-[#39FF14] outline-none mt-1"
-                    />
-                  </div>
-                )}
                 {videoFile ? (
                   <div className="space-y-2">
                     <div className="bg-black border border-gray-800 rounded overflow-hidden">
