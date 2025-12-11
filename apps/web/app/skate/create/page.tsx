@@ -7,6 +7,7 @@ import { doc, setDoc, collection, query, where, getDocs, limit } from "firebase/
 import { firestore } from "@utils/firebaseClient";
 import { onAuthStateChanged, User } from "firebase/auth";
 import AuthButton from "../../components/AuthButton";
+import { GameVisibility } from "@skate-types/skate";
 
 interface UserProfile {
   uid: string;
@@ -15,18 +16,24 @@ interface UserProfile {
   email?: string;
 }
 
+type Step = "TYPE" | "OPPONENT" | "RULES" | "CONFIRM";
+
 export default function CreateGamePage() {
-  const [opponentId, setOpponentId] = useState("");
+  const [step, setStep] = useState<Step>("TYPE");
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [copied, setCopied] = useState(false);
+  
+  // Game State
+  const [gameType, setGameType] = useState("SKATE"); // Only one for now
+  const [opponent, setOpponent] = useState<UserProfile | null>(null);
+  const [visibility, setVisibility] = useState<GameVisibility>("PUBLIC");
+  const [spotId, setSpotId] = useState<string | null>(null);
   
   // Search State
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<UserProfile[]>([]);
   const [searching, setSearching] = useState(false);
-  const [selectedOpponent, setSelectedOpponent] = useState<UserProfile | null>(null);
+  
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -34,14 +41,6 @@ export default function CreateGamePage() {
     });
     return () => unsubscribe();
   }, []);
-
-  const copyToClipboard = () => {
-    if (currentUser) {
-      navigator.clipboard.writeText(currentUser.uid);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,7 +51,6 @@ export default function CreateGamePage() {
     
     try {
       const usersRef = collection(firestore, "users");
-      // Search by displayName (case-sensitive prefix match is standard Firestore behavior)
       const q = query(
         usersRef, 
         where("displayName", ">=", searchQuery),
@@ -75,41 +73,203 @@ export default function CreateGamePage() {
     }
   };
 
-  const selectOpponent = (user: UserProfile) => {
-    setSelectedOpponent(user);
-    setOpponentId(user.uid);
-    setSearchResults([]);
-    setSearchQuery("");
-  };
-
-  const clearSelection = () => {
-    setSelectedOpponent(null);
-    setOpponentId("");
-  };
-
   const handleCreateGame = async () => {
-    if (!currentUser || !opponentId) return;
+    if (!currentUser || !opponent) return;
 
-    setLoading(true);
-    setError("");
+    setCreating(true);
 
     try {
-      // Generate a new ID for the game
       const gameRef = doc(collection(firestore, "games"));
       const gameId = gameRef.id;
 
-      // Create the game object using the engine
-      const newGame = createGame(gameId, currentUser.uid, opponentId);
+      const newGame = createGame(
+        gameId, 
+        currentUser.uid, 
+        opponent.uid,
+        visibility,
+        spotId
+      );
 
-      // Write to Firestore
       await setDoc(gameRef, newGame);
-
-      // Redirect to the game page
       window.location.href = `/skate/${gameId}`;
     } catch (err) {
       console.error("Error creating game:", err);
-      setError("Failed to create game. Please try again.");
-      setLoading(false);
+      setCreating(false);
+    }
+  };
+
+  // Render Steps
+  const renderStep = () => {
+    switch (step) {
+      case "TYPE":
+        return (
+          <div className="space-y-6">
+            <h2 className="text-2xl font-bold text-white mb-4">Select Game Type</h2>
+            <div 
+              onClick={() => setStep("OPPONENT")}
+              className="bg-gray-900 border border-[#39FF14] p-6 rounded-lg cursor-pointer hover:bg-gray-800 transition-colors"
+            >
+              <h3 className="text-xl font-bold text-[#39FF14] mb-2">1v1 S.K.A.T.E.</h3>
+              <p className="text-gray-400 text-sm">Classic game. Set tricks, match them, or get a letter.</p>
+            </div>
+            <div className="bg-gray-900 border border-gray-800 p-6 rounded-lg opacity-50 cursor-not-allowed">
+              <h3 className="text-xl font-bold text-gray-500 mb-2">Team Battle</h3>
+              <p className="text-gray-600 text-sm">Coming soon...</p>
+            </div>
+          </div>
+        );
+
+      case "OPPONENT":
+        return (
+          <div className="space-y-6">
+            <h2 className="text-2xl font-bold text-white mb-4">Choose Opponent</h2>
+            
+            {opponent ? (
+              <div className="bg-black border border-[#39FF14] rounded p-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  {opponent.photoURL ? (
+                    <img src={opponent.photoURL} alt={opponent.displayName} className="w-12 h-12 rounded-full" />
+                  ) : (
+                    <div className="w-12 h-12 rounded-full bg-gray-800 flex items-center justify-center">👤</div>
+                  )}
+                  <div>
+                    <p className="font-bold text-[#39FF14]">{opponent.displayName}</p>
+                    <p className="text-xs text-gray-500">UID: {opponent.uid.substring(0, 6)}...</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setOpponent(null)}
+                  className="text-gray-400 hover:text-white"
+                >
+                  Change
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <form onSubmit={handleSearch} className="flex gap-2">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search by username..."
+                    className="flex-1 bg-black border border-gray-700 rounded px-4 py-3 text-white focus:border-[#39FF14] outline-none"
+                  />
+                  <button 
+                    type="submit"
+                    disabled={searching}
+                    className="bg-gray-800 hover:bg-gray-700 text-white px-6 rounded font-bold"
+                  >
+                    {searching ? "..." : "Search"}
+                  </button>
+                </form>
+
+                {searchResults.length > 0 && (
+                  <div className="bg-black border border-gray-800 rounded max-h-60 overflow-y-auto">
+                    {searchResults.map(user => (
+                      <div 
+                        key={user.uid}
+                        onClick={() => setOpponent(user)}
+                        className="flex items-center gap-3 p-3 hover:bg-gray-900 cursor-pointer border-b border-gray-900 last:border-0"
+                      >
+                        {user.photoURL ? (
+                          <img src={user.photoURL} alt={user.displayName} className="w-10 h-10 rounded-full" />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-xs">👤</div>
+                        )}
+                        <div className="flex-1">
+                          <p className="font-bold text-sm">{user.displayName}</p>
+                        </div>
+                        <button className="text-xs bg-[#39FF14] text-black px-3 py-1 rounded font-bold">
+                          SELECT
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="flex justify-between pt-4">
+              <button 
+                onClick={() => setStep("TYPE")}
+                className="text-gray-500 hover:text-white"
+              >
+                Back
+              </button>
+              <button 
+                onClick={() => setStep("RULES")}
+                disabled={!opponent}
+                className={`px-8 py-3 rounded font-bold uppercase tracking-widest transition-all
+                  ${!opponent 
+                    ? "bg-gray-800 text-gray-500 cursor-not-allowed" 
+                    : "bg-[#39FF14] text-black hover:bg-[#32cc12]"
+                  }`}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        );
+
+      case "RULES":
+        return (
+          <div className="space-y-6">
+            <h2 className="text-2xl font-bold text-white mb-4">Game Rules</h2>
+            
+            <div className="bg-gray-900 border border-gray-800 rounded-lg p-6 space-y-6">
+              <div>
+                <label className="block text-gray-400 text-sm font-bold mb-2">Word</label>
+                <div className="text-2xl font-bold text-[#39FF14] tracking-widest">S.K.A.T.E.</div>
+              </div>
+
+              <div>
+                <label className="block text-gray-400 text-sm font-bold mb-2">Time Limit</label>
+                <div className="text-white">24 Hours per turn</div>
+              </div>
+
+              <div>
+                <label className="block text-gray-400 text-sm font-bold mb-2">Visibility</label>
+                <div className="flex gap-4">
+                  <button 
+                    onClick={() => setVisibility("PUBLIC")}
+                    className={`flex-1 py-3 rounded border ${visibility === "PUBLIC" ? "border-[#39FF14] bg-[#39FF14]/10 text-[#39FF14]" : "border-gray-700 text-gray-500"}`}
+                  >
+                    Public
+                  </button>
+                  <button 
+                    onClick={() => setVisibility("PRIVATE")}
+                    className={`flex-1 py-3 rounded border ${visibility === "PRIVATE" ? "border-[#39FF14] bg-[#39FF14]/10 text-[#39FF14]" : "border-gray-700 text-gray-500"}`}
+                  >
+                    Private
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-between pt-4">
+              <button 
+                onClick={() => setStep("OPPONENT")}
+                className="text-gray-500 hover:text-white"
+              >
+                Back
+              </button>
+              <button 
+                onClick={handleCreateGame}
+                disabled={creating}
+                className={`px-8 py-3 rounded font-bold uppercase tracking-widest transition-all
+                  ${creating 
+                    ? "bg-gray-700 text-gray-500 cursor-wait" 
+                    : "bg-[#39FF14] text-black hover:bg-[#32cc12]"
+                  }`}
+              >
+                {creating ? "Creating..." : "Create Game"}
+              </button>
+            </div>
+          </div>
+        );
+
+      default:
+        return null;
     }
   };
 
@@ -119,142 +279,15 @@ export default function CreateGamePage() {
         <AuthButton />
       </div>
 
-      <h1 className="text-4xl font-bold text-[#39FF14] mb-8 tracking-tighter">
-        NEW SKATE GAME
-      </h1>
-
-      <div className="w-full max-w-md space-y-6">
-        {currentUser && (
-          <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 mb-6">
-            <p className="text-sm text-gray-400 mb-1">Your Player ID (Share this with friends)</p>
-            <div className="flex items-center gap-2">
-              <code className="bg-black px-2 py-1 rounded text-[#39FF14] flex-1 overflow-hidden text-ellipsis">
-                {currentUser.uid}
-              </code>
-              <button 
-                onClick={copyToClipboard}
-                className="text-xs bg-gray-800 hover:bg-gray-700 px-2 py-1 rounded text-white transition-colors"
-              >
-                {copied ? "Copied!" : "Copy"}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Opponent Selection Section */}
-        <div className="bg-gray-900 border border-gray-800 rounded-lg p-6">
-          <h2 className="text-xl font-bold text-white mb-4">Find Opponent</h2>
-          
-          {selectedOpponent ? (
-            <div className="flex items-center justify-between bg-black border border-[#39FF14] rounded p-3 mb-4">
-              <div className="flex items-center gap-3">
-                {selectedOpponent.photoURL ? (
-                  <img src={selectedOpponent.photoURL} alt={selectedOpponent.displayName} className="w-10 h-10 rounded-full" />
-                ) : (
-                  <div className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center">👤</div>
-                )}
-                <div>
-                  <p className="font-bold text-[#39FF14]">{selectedOpponent.displayName}</p>
-                  <p className="text-xs text-gray-500">{selectedOpponent.uid.substring(0, 8)}...</p>
-                </div>
-              </div>
-              <button onClick={clearSelection} className="text-gray-400 hover:text-white">✕</button>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <form onSubmit={handleSearch} className="flex gap-2">
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search by username..."
-                  className="flex-1 bg-black border border-gray-700 rounded px-4 py-2 text-white focus:border-[#39FF14] outline-none"
-                />
-                <button 
-                  type="submit"
-                  disabled={searching}
-                  className="bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded font-bold transition-colors"
-                >
-                  {searching ? "..." : "Search"}
-                </button>
-              </form>
-
-              {searchResults.length > 0 && (
-                <div className="bg-black border border-gray-800 rounded max-h-40 overflow-y-auto">
-                  {searchResults.map(user => (
-                    <div 
-                      key={user.uid}
-                      onClick={() => selectOpponent(user)}
-                      className="flex items-center gap-3 p-3 hover:bg-gray-900 cursor-pointer border-b border-gray-900 last:border-0"
-                    >
-                      {user.photoURL ? (
-                        <img src={user.photoURL} alt={user.displayName} className="w-8 h-8 rounded-full" />
-                      ) : (
-                        <div className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center text-xs">👤</div>
-                      )}
-                      <div className="flex-1">
-                        <p className="font-bold text-sm">{user.displayName}</p>
-                      </div>
-                      <button className="text-xs bg-[#39FF14] text-black px-2 py-1 rounded font-bold">
-                        SELECT
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              
-              <div className="relative flex py-2 items-center">
-                <div className="flex-grow border-t border-gray-800"></div>
-                <span className="flex-shrink-0 mx-4 text-gray-600 text-xs">OR ENTER ID</span>
-                <div className="flex-grow border-t border-gray-800"></div>
-              </div>
-
-              <input
-                type="text"
-                value={opponentId}
-                onChange={(e) => {
-                  setOpponentId(e.target.value);
-                  setSelectedOpponent(null);
-                }}
-                placeholder="Paste Opponent UID directly"
-                className="w-full bg-black border border-gray-700 rounded px-4 py-2 text-white focus:border-[#39FF14] outline-none text-sm"
-              />
-            </div>
-          )}
+      <div className="w-full max-w-md">
+        {/* Progress Bar */}
+        <div className="flex gap-2 mb-8">
+          <div className={`h-1 flex-1 rounded ${step === "TYPE" || step === "OPPONENT" || step === "RULES" ? "bg-[#39FF14]" : "bg-gray-800"}`} />
+          <div className={`h-1 flex-1 rounded ${step === "OPPONENT" || step === "RULES" ? "bg-[#39FF14]" : "bg-gray-800"}`} />
+          <div className={`h-1 flex-1 rounded ${step === "RULES" ? "bg-[#39FF14]" : "bg-gray-800"}`} />
         </div>
 
-        {error && (
-          <div className="text-red-500 text-center text-sm bg-red-900/20 p-2 rounded border border-red-900">
-            {error}
-          </div>
-        )}
-
-        <button
-          onClick={handleCreateGame}
-          disabled={loading || !opponentId || !currentUser}
-          className={`w-full py-4 rounded font-bold text-lg uppercase tracking-widest transition-all
-            ${loading || !opponentId || !currentUser
-              ? "bg-gray-800 text-gray-500 cursor-not-allowed" 
-              : "bg-[#39FF14] text-black hover:bg-[#32cc12] hover:shadow-[0_0_20px_rgba(57,255,20,0.4)]"
-            }`}
-        >
-          {loading ? "Creating Game..." : "Start Game"}
-        </button>
-
-        {currentUser && (
-          <button
-            onClick={() => setOpponentId("PRACTICE-BOT")}
-            className="w-full text-xs text-gray-500 hover:text-[#39FF14] mt-2 underline"
-          >
-            Play Practice Mode (vs Bot)
-          </button>
-        )}
-
-        {!currentUser && (
-          <p className="text-center text-gray-500 text-sm">
-            You must be logged in to start a game.
-          </p>
-        )}
+        {renderStep()}
       </div>
     </div>
   );

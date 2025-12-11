@@ -10,27 +10,43 @@ export interface User {
   };
 }
 
+export type GameStatus = "PENDING_ACCEPT" | "ACTIVE" | "DECLINED" | "COMPLETED";
+export type GameVisibility = "PUBLIC" | "PRIVATE";
+export type PlayerRole = "CHALLENGER" | "DEFENDER";
+
 export interface Game {
   id: string;
-  playerA: string; // uid
-  playerB: string; // uid
-  status: "pending" | "in_progress" | "finished";
-  currentTurn: "A" | "B";
-  turns: string[]; // Array of turnIds
+  challengerId: string;
+  defenderId: string;
+  status: GameStatus;
+  currentTurn: PlayerRole;
+  lettersWord: string; // e.g. "SKATE"
+  challengerLetters: string; // e.g. "SK"
+  defenderLetters: string; // e.g. ""
+  visibility: GameVisibility;
+  spotId?: string | null;
   winnerId?: string;
-  createdAt: number; // Timestamp
-  updatedAt: number; // Timestamp
+  rounds: string[]; // Array of roundIds
+  createdAt: number;
+  updatedAt: number;
 }
 
-export interface Turn {
+export type RoundStatus = "AWAITING_DEFENDER" | "COMPLETE" | "TIMEOUT";
+export type TrickResult = "MAKE" | "BAIL" | "PENDING" | "TIMEOUT";
+
+export interface Round {
   id: string;
   gameId: string;
-  playerId: string;
-  videoUrl: string;
-  trickName: string;
-  result: "landed" | "bailed" | "pending";
-  letter: string; // The letter assigned if bailed (e.g., "S", "K", etc.) or empty if landed
-  createdAt: number; // Timestamp
+  index: number;
+  attackerId: string;
+  defenderId: string;
+  attackerVideoUrl: string;
+  defenderVideoUrl?: string | null;
+  attackerResult: TrickResult;
+  defenderResult: TrickResult;
+  deadlineReplyAt: number;
+  status: RoundStatus;
+  createdAt: number;
 }
 
 export interface Follow {
