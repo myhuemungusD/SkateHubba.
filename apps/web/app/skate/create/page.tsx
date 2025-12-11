@@ -7,7 +7,7 @@ import { doc, setDoc, collection, query, where, getDocs, limit } from "firebase/
 import { firestore } from "@utils/firebaseClient";
 import { onAuthStateChanged, User } from "firebase/auth";
 import AuthButton from "../../components/AuthButton";
-import { GameVisibility } from "@skate-types/skate";
+import { GameVisibility } from "@skatehubba/types";
 
 interface UserProfile {
   uid: string;
@@ -23,10 +23,11 @@ export default function CreateGamePage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   
   // Game State
-  const [gameType, setGameType] = useState("SKATE"); // Only one for now
+  // const [gameType, setGameType] = useState("SKATE"); // Only one for now
   const [opponent, setOpponent] = useState<UserProfile | null>(null);
   const [visibility, setVisibility] = useState<GameVisibility>("PUBLIC");
-  const [spotId, setSpotId] = useState<string | null>(null);
+  // const [spotId, setSpotId] = useState<string | null>(null);
+  const spotId = null; // Hardcoded for now until spots are implemented
   
   // Search State
   const [searchQuery, setSearchQuery] = useState("");

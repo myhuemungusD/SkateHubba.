@@ -6,7 +6,7 @@ import { doc, onSnapshot, collection, query, where, orderBy, updateDoc } from "f
 import { firestore } from "@utils/firebaseClient";
 import { auth } from "@utils/auth";
 import { onAuthStateChanged, User } from "firebase/auth";
-import type { Game, Round } from "@skate-types/skate";
+import type { Game, Round } from "@skatehubba/types";
 import AuthButton from "../../components/AuthButton";
 
 export default function GamePage() {

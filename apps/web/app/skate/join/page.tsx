@@ -7,7 +7,7 @@ import { firestore } from "@utils/firebaseClient";
 import { onAuthStateChanged, User } from "firebase/auth";
 import AuthButton from "../../components/AuthButton";
 import Link from "next/link";
-import type { Game } from "@skate-types/skate";
+import type { Game } from "@skatehubba/types";
 
 export default function JoinGamePage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
