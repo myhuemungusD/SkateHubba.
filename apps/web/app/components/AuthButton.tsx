@@ -29,6 +29,8 @@ export default function AuthButton() {
             createdAt: Date.now(),
             stats: { wins: 0, losses: 0, streak: 0 }
           });
+          // Redirect new users to profile page to set their username
+          window.location.href = "/profile";
         }
       }
       setLoading(false);
@@ -41,13 +43,15 @@ export default function AuthButton() {
   if (user) {
     return (
       <div className="flex items-center gap-4">
-        <div className="text-right">
-          <p className="text-sm font-bold text-[#39FF14]">{user.displayName}</p>
-          <p className="text-xs text-gray-500">UID: {user.uid.substring(0, 6)}...</p>
-        </div>
-        {user.photoURL && (
-          <img src={user.photoURL} alt="Profile" className="w-8 h-8 rounded-full border border-[#333]" />
-        )}
+        <a href="/profile" className="flex items-center gap-3 hover:opacity-80 transition-opacity group">
+          <div className="text-right">
+            <p className="text-sm font-bold text-[#39FF14] group-hover:underline">{user.displayName}</p>
+            <p className="text-xs text-gray-500">UID: {user.uid.substring(0, 6)}...</p>
+          </div>
+          {user.photoURL && (
+            <img src={user.photoURL} alt="Profile" className="w-8 h-8 rounded-full border border-[#333]" />
+          )}
+        </a>
         <button
           onClick={() => logout()}
           className="text-xs text-red-500 hover:text-red-400 underline"
