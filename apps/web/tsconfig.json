@@ -23,7 +23,7 @@
       "@skatehubba/skate-engine": ["../../packages/skate-engine/index.ts"],
       "@db/*": ["../../packages/db/*"],
       "@env/*": ["../../packages/env/*"],
-      "@types/*": ["../../packages/types/*"],
+      "@skate-types/*": ["../../packages/types/*"],
       "@zora/*": ["../../packages/zora/*"],
       "@hubba/*": ["../../packages/hubba-coin/*"],
       "@utils/*": ["../../packages/utils/*"]
