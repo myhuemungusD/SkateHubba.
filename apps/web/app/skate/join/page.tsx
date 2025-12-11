@@ -121,7 +121,7 @@ export default function JoinGamePage() {
                         <div>
                           <p className="text-gray-400 text-xs mb-1">Game ID: {game.id.substring(0, 8)}...</p>
                           <p className="font-bold text-lg">
-                            vs {game.playerA === currentUser.uid ? "Opponent" : "Opponent"}
+                            vs {game.challengerId === currentUser.uid ? "Opponent" : "Opponent"}
                           </p>
                         </div>
                         <div className={`px-3 py-1 rounded-full text-xs font-bold uppercase

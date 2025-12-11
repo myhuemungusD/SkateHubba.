@@ -67,11 +67,13 @@ import { View, Text, TouchableOpacity, TextInput, StyleSheet, ActivityIndicator,
 import { Camera, useCameraDevice, useCameraPermission, useMicrophonePermission, VideoFile } from "react-native-vision-camera";
 import { FFmpegKit, ReturnCode } from "ffmpeg-kit-react-native";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
 import { firestore, storage, auth } from "@utils/firebaseClient";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { v4 as uuidv4 } from "uuid";
 import { Video, ResizeMode } from "expo-av";
+import { createRound } from "@skatehubba/skate-engine";
+import { Game } from "@skatehubba/types";
 
 export default function SubmitScreen() {
   const navigation = useNavigation<any>();
@@ -168,19 +170,30 @@ export default function SubmitScreen() {
       await uploadBytes(storageRef, blob);
       const downloadURL = await getDownloadURL(storageRef);
 
-      // 3. Create Turn Doc
-      const turnData = {
-        id: turnId,
-        gameId: gameId,
-        playerId: auth.currentUser.uid,
-        videoUrl: downloadURL,
-        trickName: trickName.trim(),
-        result: "pending",
-        letter: "",
-        createdAt: Date.now(),
-      };
+      // 3. Create Round Doc
+      const gameRef = doc(firestore, "games", gameId);
+      const gameSnap = await getDoc(gameRef);
+      if (!gameSnap.exists()) throw new Error("Game not found");
+      const game = gameSnap.data() as Game;
 
-      await setDoc(doc(firestore, "turns", turnId), turnData);
+      const defenderId = game.challengerId === auth.currentUser.uid ? game.defenderId : game.challengerId;
+      const roundIndex = (game.rounds?.length || 0) + 1;
+      const roundId = uuidv4();
+
+      const roundData = createRound(
+        roundId,
+        gameId,
+        roundIndex,
+        auth.currentUser.uid,
+        defenderId,
+        downloadURL
+      );
+
+      await setDoc(doc(firestore, "games", gameId, "rounds", roundId), roundData);
+      await updateDoc(gameRef, {
+        rounds: arrayUnion(roundId),
+        updatedAt: Date.now()
+      });
 
       setUploading(false);
       navigation.goBack();

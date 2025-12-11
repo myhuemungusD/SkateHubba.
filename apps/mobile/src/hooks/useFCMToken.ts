@@ -96,12 +96,12 @@ export function useFCMToken(): void {
     register();
 
     // Listen for incoming notifications
-    notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
+    notificationListener.current = Notifications.addNotificationReceivedListener((notification: Notifications.Notification) => {
       console.log("Notification received:", notification);
     });
 
     // Listen for user interaction with notification
-    responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
+    responseListener.current = Notifications.addNotificationResponseReceivedListener((response: Notifications.NotificationResponse) => {
       console.log("Notification response:", response);
     });
 

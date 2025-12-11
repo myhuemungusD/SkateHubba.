@@ -5,10 +5,11 @@ import { useParams, useRouter } from "next/navigation";
 import { auth } from "@utils/auth";
 import { firestore, storage } from "@utils/firebaseClient";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
 import { v4 as uuidv4 } from "uuid";
-import { submitTurn } from "@skatehubba/skate-engine";
+import { createRound } from "@skatehubba/skate-engine";
 import { onAuthStateChanged, User } from "firebase/auth";
+import { Game } from "@skatehubba/types";
 
 export default function SubmitTurnPage() {
   const params = useParams();
@@ -55,20 +56,40 @@ export default function SubmitTurnPage() {
       await uploadBytes(storageRef, file);
       const downloadUrl = await getDownloadURL(storageRef);
 
-      // 2. Create Turn Object
-      const turnId = uuidv4();
-      const turnData = submitTurn({
-        id: turnId,
+      // 2. Fetch Game to get context
+      const gameRef = doc(firestore, "games", gameId);
+      const gameSnap = await getDoc(gameRef);
+      if (!gameSnap.exists()) {
+        throw new Error("Game not found");
+      }
+      const game = gameSnap.data() as Game;
+      
+      // Determine defender (the other player)
+      const defenderId = game.challengerId === user.uid ? game.defenderId : game.challengerId;
+      const roundIndex = (game.rounds?.length || 0) + 1;
+
+      // 3. Create Round Object
+      const roundId = uuidv4();
+      const roundData = createRound(
+        roundId,
         gameId,
-        playerId: user.uid,
-        videoUrl: downloadUrl,
-        trickName,
+        roundIndex,
+        user.uid,
+        defenderId,
+        downloadUrl
+      );
+
+      // 4. Save to Firestore
+      // Save round
+      await setDoc(doc(firestore, "games", gameId, "rounds", roundId), roundData);
+      
+      // Update game with new round ID
+      await updateDoc(gameRef, {
+        rounds: arrayUnion(roundId),
+        updatedAt: Date.now()
       });
 
-      // 3. Save to Firestore
-      await setDoc(doc(firestore, "turns", turnId), turnData);
-
-      // 4. Redirect
+      // 5. Redirect
       router.push(`/skate/${gameId}`);
     } catch (err) {
       console.error("Error submitting turn:", err);

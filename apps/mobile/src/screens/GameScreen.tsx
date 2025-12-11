@@ -55,7 +55,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView
 import { Video, ResizeMode } from "expo-av";
 import { auth, firestore } from "@utils/firebaseClient";
 import { doc, onSnapshot, collection, query, where, orderBy } from "firebase/firestore";
-import type { Game, Turn } from "@skatehubba/types";
+import type { Game, Round } from "@skatehubba/types";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { onAuthStateChanged, User } from "firebase/auth";
 
@@ -65,7 +65,7 @@ export default function GameScreen() {
   const { gameId } = route.params;
 
   const [game, setGame] = useState<Game | null>(null);
-  const [turns, setTurns] = useState<Turn[]>([]);
+  const [rounds, setRounds] = useState<Round[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -150,44 +150,44 @@ export default function GameScreen() {
   );
 
   // Find Last Video
-  const lastVideoTurn = [...turns].reverse().find((t) => t.videoUrl);
+  const lastRound = rounds.length > 0 ? rounds[0] : null;
 
   return (
     <ScrollView contentContainerStyle={styles.scrollContainer} style={styles.container}>
       {/* Scoreboard */}
       <View style={styles.scoreboard}>
         <View style={styles.playerScore}>
-          <Text style={styles.playerLabel}>PLAYER A</Text>
+          <Text style={styles.playerLabel}>CHALLENGER</Text>
           <Text style={styles.letters}>{lettersA || "SKATE"}</Text>
-          {currentUser?.uid === game.playerA && <Text style={styles.youLabel}>(YOU)</Text>}
+          {currentUser?.uid === game.challengerId && <Text style={styles.youLabel}>(YOU)</Text>}
         </View>
 
         <View style={styles.vsContainer}>
           <Text style={styles.vsText}>VS</Text>
           <View style={[styles.statusBadge, isMyTurn ? styles.statusActive : styles.statusWaiting]}>
             <Text style={styles.statusText}>
-              {game.status === "finished" ? "DONE" : isMyTurn ? "YOUR TURN" : "WAITING"}
+              {game.status === "COMPLETED" ? "DONE" : isMyTurn ? "YOUR TURN" : "WAITING"}
             </Text>
           </View>
         </View>
 
         <View style={styles.playerScore}>
-          <Text style={styles.playerLabel}>PLAYER B</Text>
+          <Text style={styles.playerLabel}>DEFENDER</Text>
           <Text style={styles.letters}>{lettersB || "SKATE"}</Text>
-          {currentUser?.uid === game.playerB && <Text style={styles.youLabel}>(YOU)</Text>}
+          {currentUser?.uid === game.defenderId && <Text style={styles.youLabel}>(YOU)</Text>}
         </View>
       </View>
 
       {/* Video Section */}
       <View style={styles.videoSection}>
-        {lastVideoTurn ? (
+        {lastRound ? (
           <View style={styles.videoContainer}>
             <View style={styles.videoHeader}>
-              <Text style={styles.trickName}>{lastVideoTurn.trickName}</Text>
-              <Text style={styles.trickDate}>{new Date(lastVideoTurn.createdAt).toLocaleDateString()}</Text>
+              <Text style={styles.trickName}>Round {lastRound.index}</Text>
+              <Text style={styles.trickDate}>{new Date(lastRound.createdAt).toLocaleDateString()}</Text>
             </View>
             <Video
-              source={{ uri: lastVideoTurn.videoUrl }}
+              source={{ uri: lastRound.attackerVideoUrl }}
               rate={1.0}
               volume={1.0}
               isMuted={false}
@@ -205,7 +205,7 @@ export default function GameScreen() {
       </View>
 
       {/* Action Button */}
-      {game.status !== "finished" && isMyTurn && (
+      {game.status !== "COMPLETED" && isMyTurn && (
         <TouchableOpacity
           style={styles.actionButton}
           onPress={() => navigation.navigate("SubmitScreen", { gameId })}
@@ -214,7 +214,7 @@ export default function GameScreen() {
         </TouchableOpacity>
       )}
 
-      {game.status === "finished" && (
+      {game.status === "COMPLETED" && (
         <View style={styles.finishedContainer}>
           <Text style={styles.winnerText}>
             WINNER: {game.winnerId === currentUser?.uid ? "YOU!" : "OPPONENT"}

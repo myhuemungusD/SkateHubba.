@@ -27,12 +27,12 @@ export default function HomeScreen() {
 
     const gamesRef = collection(firestore, "games");
     
-    // Query for games where user is playerA OR playerB
+    // Query for games where user is challengerId OR defenderId
     const q = query(
       gamesRef, 
       or(
-        where("playerA", "==", currentUser.uid),
-        where("playerB", "==", currentUser.uid)
+        where("challengerId", "==", currentUser.uid),
+        where("defenderId", "==", currentUser.uid)
       )
     );
 
@@ -59,14 +59,14 @@ export default function HomeScreen() {
 
   const getOpponentId = (game: Game) => {
     if (!currentUser) return "";
-    return game.playerA === currentUser.uid ? game.playerB : game.playerA;
+    return game.challengerId === currentUser.uid ? game.defenderId : game.challengerId;
   };
 
   const isMyTurn = (game: Game) => {
     if (!currentUser) return false;
     return (
-      (game.currentTurn === "A" && currentUser.uid === game.playerA) ||
-      (game.currentTurn === "B" && currentUser.uid === game.playerB)
+      (game.currentTurn === "CHALLENGER" && currentUser.uid === game.challengerId) ||
+      (game.currentTurn === "DEFENDER" && currentUser.uid === game.defenderId)
     );
   };
 
