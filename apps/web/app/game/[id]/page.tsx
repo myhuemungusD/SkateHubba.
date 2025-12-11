@@ -17,6 +17,7 @@ import AuthButton from "../../components/AuthButton";
 import {
   acceptGame,
   declineGame,
+  startRoundByAttacker,
   submitDefenderReply,
 } from "../../lib/gameService";
 
@@ -113,7 +114,17 @@ export default function GamePage() {
 
   const handleSetTrick = async () => {
     if (!game || !currentUser) return;
-    router.push(`/skate/${game.id}/submit`);
+    const videoUrl = prompt("Enter video URL for your trick");
+    if (!videoUrl) return;
+    setActionLoading(true);
+    try {
+      await startRoundByAttacker(game.id, currentUser.uid, videoUrl);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to start round.");
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const handleReply = async () => {
