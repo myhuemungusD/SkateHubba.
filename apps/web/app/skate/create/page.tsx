@@ -116,6 +116,15 @@ export default function CreateGamePage() {
           {loading ? "Creating..." : "Start Game"}
         </button>
 
+        {currentUser && (
+          <button
+            onClick={() => setOpponentId("PRACTICE-BOT")}
+            className="w-full text-xs text-gray-500 hover:text-[#39FF14] mt-2 underline"
+          >
+            Play Practice Mode (vs Bot)
+          </button>
+        )}
+
         {!currentUser && (
           <p className="text-center text-gray-500 text-sm mt-4">
             You must be logged in to start a game.

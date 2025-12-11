@@ -34,6 +34,9 @@ export default function Home() {
       
       <footer className="absolute bottom-8 text-gray-600 text-sm">
         <p>Powered by Zora & Firebase</p>
+        <Link href="/debug" className="ml-4 text-xs text-gray-800 hover:text-gray-500">
+          [Dev Tools]
+        </Link>
       </footer>
     </div>
   );
