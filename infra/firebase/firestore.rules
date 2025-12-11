@@ -2,9 +2,38 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /// ---- AUTH REQUIRED ----
+    /// ---- HELPERS ----
     function isSignedIn() {
       return request.auth != null;
+    }
+
+    function isGameParticipant(data) {
+      return isSignedIn() &&
+        (request.auth.uid == data.challengerId ||
+         request.auth.uid == data.defenderId);
+    }
+
+    function canUpdateGameStatus(before, after) {
+      // Only allow status changes from PENDING_ACCEPT to ACTIVE or DECLINED
+      // and only by the defender.
+      return isSignedIn()
+        && request.auth.uid == before.defenderId
+        && before.status == "PENDING_ACCEPT"
+        && (
+          after.status == "ACTIVE" ||
+          after.status == "DECLINED"
+        );
+    }
+
+    function isValidNewGame(data) {
+      // Enforce initial state for new game documents
+      return data.status == "PENDING_ACCEPT"
+        && !("winnerId" in data)
+        && !("finishedAt" in data)
+        && data.currentTurn == "CHALLENGER"
+        && data.lettersWord == "SKATE"
+        && data.challengerLetters == ""
+        && data.defenderLetters == "";
     }
 
     /// ---- USER DOCS ----
@@ -15,55 +44,39 @@ service cloud.firestore {
 
     /// ---- GAMES COLLECTION ----
     match /games/{gameId} {
-      allow read: if true;
+      allow read: if isGameParticipant(resource.data);
 
-      // Users cannot create games directly. Must be done through server or controlled client call.
-      allow create: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.challengerId == request.auth.uid
+        && isValidNewGame(request.resource.data);
 
-      // Users CANNOT update authoritative fields:
-      // - winnerId
-      // - currentTurn
-      // - turns[]
-      // - status
-      allow update: if isSignedIn()
-                    && !( "winnerId" in request.resource.data.diff().affectedKeys()
-                       || "currentTurn" in request.resource.data.diff().affectedKeys()
-                       || "turns" in request.resource.data.diff().affectedKeys()
-                       || "status" in request.resource.data.diff().affectedKeys()
-                    )
-                    && request.auth.uid in [resource.data.playerA, resource.data.playerB];
+      allow update: if isGameParticipant(resource.data)
+        && (
+          // Either status is NOT being changed at all...
+          !("status" in request.resource.data.diff().affectedKeys())
+          // ...or we are explicitly allowed to change it via Accept/Decline
+          || canUpdateGameStatus(resource.data, request.resource.data)
+        );
 
-      allow delete: if false;  // never allow delete in MVP
+      allow delete: if false;
     }
 
-    /// ---- TURNS COLLECTION ----
+    /// ---- ROUNDS COLLECTION ----
+    match /rounds/{roundId} {
+      allow read: if true; // Or restrict to participants if you prefer
+
+      // Allow creation of rounds (setting a trick)
+      allow create: if isSignedIn()
+        && request.resource.data.attackerId == request.auth.uid;
+        
+      // Allow updates (defender replying)
+      allow update: if isSignedIn();
+    }
+    
+    /// ---- TURNS COLLECTION (Legacy/Deprecated?) ----
     match /turns/{turnId} {
       allow read: if true;
-
-      // Client can CREATE a turn, but ONLY with safe fields:
-      allow create: if isSignedIn()
-                    && request.resource.data.playerId == request.auth.uid
-                    && request.resource.data.result == "pending"
-                    && request.resource.data.letter == ""
-                    && request.resource.data.keys().hasOnly([
-                        "id",
-                        "gameId",
-                        "playerId",
-                        "videoUrl",
-                        "trickName",
-                        "result",
-                        "letter",
-                        "createdAt"
-                      ]);
-
-      // Client CANNOT modify a turn after creation.
-      allow update, delete: if false;
-    }
-
-    /// ---- FOLLOWS COLLECTION ----
-    match /follows/{uid}/following/{target} {
-      allow read: if true;
-      allow write: if isSignedIn() && request.auth.uid == uid;
+      allow write: if isSignedIn();
     }
   }
 }

@@ -22,7 +22,6 @@
       "@ui/*": ["../../packages/ui/*"],
       "@skatehubba/skate-engine": ["../../packages/skate-engine/index.ts"],
       "@skatehubba/types": ["../../packages/types/index.ts"],
-      "@db/*": ["../../packages/db/*"],
       "@env/*": ["../../packages/env/*"],
       "@skate-types/*": ["../../packages/types/*"],
       "@zora/*": ["../../packages/zora/*"],
