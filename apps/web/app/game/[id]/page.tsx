@@ -9,9 +9,10 @@ import {
   orderBy,
   query,
 } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { onAuthStateChanged, User } from "firebase/auth";
 import type { Game, Round } from "@skatehubba/types";
-import { firestore } from "@utils/firebaseClient";
+import { firestore, storage } from "@utils/firebaseClient";
 import { auth } from "@utils/auth";
 import AuthButton from "../../components/AuthButton";
 import { toDate, formatRelative } from "@utils/format";
@@ -25,15 +26,6 @@ import {
 const SKATE_STEPS = ["-", "S", "SK", "SKA", "SKAT", "SKATE"];
 const lettersFromCount = (count: number) => SKATE_STEPS[count] ?? "SKATE";
 
-const isValidHttpUrl = (value: string) => {
-  try {
-    const url = new URL(value);
-    return url.protocol === "http:" || url.protocol === "https:";
-  } catch {
-    return false;
-  }
-};
-
 export default function GamePage() {
   const params = useParams();
   const gameId = params.id as string;
@@ -44,10 +36,9 @@ export default function GamePage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [formMode, setFormMode] = useState<"none" | "set" | "reply">("none");
-  const [videoUrl, setVideoUrl] = useState("");
-  const [trickName, setTrickName] = useState("");
   const [didMake, setDidMake] = useState(true);
   const [actionMessage, setActionMessage] = useState<{ text: string; tone?: "info" | "error" } | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   // Auth subscription
   useEffect(() => {
@@ -136,23 +127,29 @@ export default function GamePage() {
 
   const resetForm = () => {
     setFormMode("none");
-    setVideoUrl("");
+    setVideoFile(null);
     setTrickName("");
     setDidMake(true);
   };
 
   const submitVideo = async () => {
     if (!game || !currentUser) return;
-    if (!isValidHttpUrl(videoUrl.trim())) {
-      setActionMessage("Enter a valid http/https video URL.");
+    if (!videoFile) {
+      setActionMessage({ text: "Please select a video file.", tone: "error" });
       return;
     }
 
+    setUploading(true);
     setActionLoading(true);
-    setActionMessage(null);
+    setActionMessage({ text: "Uploading video...", tone: "info" });
+
     try {
+      const fileRef = ref(storage, `games/${game.id}/rounds/${Date.now()}_${currentUser.uid}.mp4`);
+      await uploadBytes(fileRef, videoFile);
+      const downloadUrl = await getDownloadURL(fileRef);
+
       if (formMode === "set") {
-        await startRoundByAttacker(game.id, currentUser.uid, videoUrl.trim(), trickName.trim());
+        await startRoundByAttacker(game.id, currentUser.uid, downloadUrl, trickName.trim());
         setActionMessage({ text: "Trick submitted." });
       }
       if (formMode === "reply" && pendingReplyRound) {
@@ -160,7 +157,7 @@ export default function GamePage() {
           game.id,
           pendingReplyRound.id,
           currentUser.uid,
-          videoUrl.trim(),
+          downloadUrl,
           didMake
         );
         setActionMessage({ text: "Reply submitted." });
@@ -168,8 +165,9 @@ export default function GamePage() {
       resetForm();
     } catch (err) {
       console.error(err);
-      setActionMessage({ text: "Failed to submit. Please try again.", tone: "error" });
+      setActionMessage({ text: "Failed to upload/submit. Please try again.", tone: "error" });
     } finally {
+      setUploading(false);
       setActionLoading(false);
     }
   };
@@ -334,11 +332,11 @@ export default function GamePage() {
                 </button>
               </div>
               <div className="space-y-2">
-                <label className="text-xs text-gray-500">Video URL (https)</label>
+                <label className="text-xs text-gray-500">Video File</label>
                 <input
-                  value={videoUrl}
-                  onChange={(e) => setVideoUrl(e.target.value)}
-                  placeholder="https://example.com/clip.mp4"
+                  type="file"
+                  accept="video/*"
+                  onChange={(e) => setVideoFile(e.target.files?.[0] || null)}
                   className="w-full bg-black border border-gray-700 rounded px-3 py-2 text-white focus:border-[#39FF14] outline-none"
                 />
                 {formMode === "set" && (
@@ -352,19 +350,11 @@ export default function GamePage() {
                     />
                   </div>
                 )}
-                {videoUrl && isValidHttpUrl(videoUrl.trim()) ? (
+                {videoFile ? (
                   <div className="space-y-2">
-                    <a
-                      href={videoUrl.trim()}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-xs text-[#39FF14] hover:underline"
-                    >
-                      Open link
-                    </a>
                     <div className="bg-black border border-gray-800 rounded overflow-hidden">
                       <video
-                        src={videoUrl.trim()}
+                        src={URL.createObjectURL(videoFile)}
                         controls
                         muted
                         className="w-full max-h-64 object-contain"
