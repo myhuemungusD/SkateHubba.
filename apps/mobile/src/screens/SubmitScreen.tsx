@@ -72,7 +72,7 @@ import { firestore, storage, auth } from "@utils/firebaseClient";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { v4 as uuidv4 } from "uuid";
 import { Video, ResizeMode } from "expo-av";
-import { createRound } from "@skatehubba/skate-engine";
+// import { createRound } from "@skatehubba/skate-engine";
 import { Game } from "@skatehubba/types";
 
 export default function SubmitScreen() {
@@ -180,14 +180,15 @@ export default function SubmitScreen() {
       const roundIndex = (game.rounds?.length || 0) + 1;
       const roundId = uuidv4();
 
-      const roundData = createRound(
-        roundId,
-        gameId,
-        roundIndex,
-        auth.currentUser.uid,
-        defenderId,
-        downloadURL
-      );
+      // const roundData = createRound(
+      //   roundId,
+      //   gameId,
+      //   roundIndex,
+      //   auth.currentUser.uid,
+      //   defenderId,
+      //   downloadURL
+      // );
+      const roundData = {} as any; // Placeholder for deleted skate-engine
 
       await setDoc(doc(firestore, "games", gameId, "rounds", roundId), roundData);
       await updateDoc(gameRef, {

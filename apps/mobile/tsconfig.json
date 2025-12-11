@@ -5,9 +5,7 @@
     "baseUrl": ".",
     "paths": {
       "@ui/*": ["../../packages/ui/*"],
-      "@skatehubba/skate-engine": ["../../packages/skate-engine/index.ts"],
       "@db/*": ["../../packages/db/*"],
-      "@env/*": ["../../packages/env/*"],
       "@types/*": ["../../packages/types/*"],
       "@skatehubba/types": ["../../packages/types/skate.ts"],
       "@zora/*": ["../../packages/zora/*"],

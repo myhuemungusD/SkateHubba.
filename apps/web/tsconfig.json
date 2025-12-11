@@ -20,9 +20,7 @@
     "baseUrl": ".",
     "paths": {
       "@ui/*": ["../../packages/ui/*"],
-      "@skatehubba/skate-engine": ["../../packages/skate-engine/index.ts"],
       "@skatehubba/types": ["../../packages/types/index.ts"],
-      "@env/*": ["../../packages/env/*"],
       "@skate-types/*": ["../../packages/types/*"],
       "@zora/*": ["../../packages/zora/*"],
       "@hubba/*": ["../../packages/hubba-coin/*"],

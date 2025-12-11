@@ -11,6 +11,7 @@ export type Game = {
   createdBy: string;
   createdAt: any;       // Firestore Timestamp type
   lastActionAt: any;
+  roundsCount?: number; // Tracks number of rounds to avoid querying in transactions
   state: GameState;
   winnerId?: string | null;
   finishedAt?: any | null;
@@ -31,3 +32,5 @@ export type Round = {
   createdAt: any;
   updatedAt: any;
 };
+
+export type GameVisibility = 'PUBLIC' | 'PRIVATE';

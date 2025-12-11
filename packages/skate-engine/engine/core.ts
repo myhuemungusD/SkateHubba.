@@ -1,2 +1,0 @@
-// core skate engine
-export {};

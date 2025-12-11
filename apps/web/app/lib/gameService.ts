@@ -1,18 +1,4 @@
-import { 
-  collection, 
-  doc, 
-  setDoc, 
-  updateDoc, 
-  getDoc, 
-  runTransaction, 
-  Timestamp, 
-  arrayUnion,
-  query,
-  where,
-  orderBy,
-  limit,
-  getDocs
-} from "firebase/firestore";
+import { doc, setDoc, runTransaction, Timestamp } from "firebase/firestore";
 import { firestore } from "@utils/firebaseClient";
 import { Game, Round } from "@skatehubba/types";
 import { v4 as uuidv4 } from "uuid";
@@ -32,6 +18,7 @@ export async function createGame(challengerId: string, defenderId: string): Prom
     createdBy: challengerId,
     createdAt: now,
     lastActionAt: now,
+    roundsCount: 0,
     state: {
       p1Letters: 0,
       p2Letters: 0,
@@ -134,32 +121,9 @@ export async function startRoundByAttacker(
     const defenderId = game.players.find(p => p !== attackerId);
     if (!defenderId) throw new Error("Opponent not found");
 
-    // Get next index
-    // We need to query the rounds to find the max index, or store it on the game.
-    // For efficiency, let's assume we can query the last round or store round count.
-    // Since we don't have round count on Game, we'll query.
-    // Note: In a transaction, queries must be done before writes if we want consistency, 
-    // but we can't easily query subcollections in a transaction with the JS SDK in a simple way 
-    // without knowing IDs. 
-    // ALTERNATIVE: Just read the rounds subcollection? No, that's expensive.
-    // Let's assume we can get the index from a separate read or just use a timestamp-based index if needed.
-    // BETTER: Store `currentRoundIndex` on Game? The prompt didn't specify it.
-    // Prompt says: "Read latest Round for game to find next index."
-    
-    // We will do a separate read for the latest round index OUTSIDE the transaction for simplicity,
-    // or just accept a potential race condition on index (unlikely in 1v1 turn based).
-    // Actually, we can't query inside the transaction easily for "latest".
-    // Let's just query it first.
-    
-    // NOTE: This query is technically outside the transaction lock, but for 1v1 turn-based it's low risk.
-    const roundsRef = collection(firestore, GAMES_COLLECTION, gameId, "rounds");
-    const q = query(roundsRef, orderBy("index", "desc"), limit(1));
-    const roundsSnap = await getDocs(q);
-    let nextIndex = 1;
-    if (!roundsSnap.empty) {
-      const lastRound = roundsSnap.docs[0].data() as Round;
-      nextIndex = lastRound.index + 1;
-    }
+    // Compute next round index transactionally to avoid race conditions
+    const currentCount = typeof game.roundsCount === "number" ? game.roundsCount : 0;
+    const nextIndex = currentCount + 1;
 
     const newRound: Round = {
       id: roundId,
@@ -181,7 +145,8 @@ export async function startRoundByAttacker(
 
     // Update Game
     transaction.update(gameRef, {
-      lastActionAt: now
+      lastActionAt: now,
+      roundsCount: nextIndex
     });
   });
 
