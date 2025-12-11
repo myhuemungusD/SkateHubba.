@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { auth } from "@utils/auth";
 import { createGame } from "../../lib/gameService";
-import { useOpponentLookup } from "../../hooks/useOpponentLookup";
+import { useOpponentLookup } from "../../../hooks/useOpponentLookup";
 import AuthButton from "../../components/AuthButton";
 
 export default function ChallengePage() {
