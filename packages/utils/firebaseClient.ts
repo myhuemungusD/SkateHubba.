@@ -10,8 +10,14 @@ const getFirebaseApp = (): FirebaseApp => {
   }
 
   // Check if we have a valid config (at least apiKey)
-  if (!firebaseConfig.apiKey) {
-    console.warn("Firebase API Key is missing. Using a dummy config for build/dev purposes.");
+  if (!firebaseConfig.apiKey || firebaseConfig.apiKey === 'dummy-api-key') {
+    console.warn("Firebase API Key is missing or invalid. Using a dummy config for build/dev purposes.");
+    
+    // If we are in the browser (not build server), alert the user
+    if (typeof window !== 'undefined' && !window.location.hostname.includes('localhost')) {
+      console.error("CRITICAL: Firebase Environment Variables are missing in Vercel!");
+    }
+
     // Return a dummy app to prevent build crashes when env vars are missing
     return initializeApp({
       apiKey: "AIzaSyDummyKeyForBuildProcessOnly",
