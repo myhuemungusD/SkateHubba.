@@ -1,15 +1,22 @@
 import { kv } from "@vercel/kv";
-import { NextRequest } from "next/server";
 
-export async function POST(req: NextRequest) {
-  const { uid } = await req.json();
+export const runtime = "edge";
 
-  if (!uid) {
-    return new Response("Missing uid", { status: 400 });
+export async function POST(req: Request) {
+  try {
+    const { uid } = await req.json();
+
+    if (!uid) return new Response("Missing uid", { status: 400 });
+
+    await kv.set(`presence:${uid}`, Date.now(), { ex: 30 });
+
+    return new Response(JSON.stringify({ status: "ok", uid }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  } catch (err: any) {
+    return new Response(JSON.stringify({ error: err.message }), {
+      status: 500,
+    });
   }
-
-  // Mark player as present (TTL 15 seconds)
-  await kv.set(`presence:${uid}`, Date.now(), { ex: 15 });
-
-  return Response.json({ ok: true });
 }

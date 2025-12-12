@@ -55,18 +55,31 @@ service cloud.firestore {
     // winnerId?: string | null
     // finishedAt?: timestamp | null
     function isGamePlayer(game) {
-      return isSignedIn() && request.auth.uid in game.players;
+      return isSignedIn()
+        && game != null
+        && game.players is list
+        && game.players.size() == 2
+        && request.auth.uid in game.players;
     }
 
     function isValidNewGame(data) {
       // New games must start as a pending challenge from player 1
       return isSignedIn()
+        && data.createdBy is string
         && data.createdBy == request.auth.uid
+        && data.players is list
         && data.players.size() == 2
+        && data.players[0] is string
+        && data.players[1] is string
         && data.players[0] == request.auth.uid
+        && data.state is map
+        && data.state.p1Letters is int
+        && data.state.p2Letters is int
         && data.state.p1Letters == 0
         && data.state.p2Letters == 0
+        && data.state.status is string
         && data.state.status == "PENDING_ACCEPT"
+        && data.state.turn is string
         && data.state.turn == request.auth.uid
         && (!("winnerId" in data) || data.winnerId == null)
         && (!("finishedAt" in data) || data.finishedAt == null);
@@ -79,6 +92,10 @@ service cloud.firestore {
     // Only defender (players[1]) can move PENDING_ACCEPT -> ACTIVE/DECLINED
     function canUpdateGameStatus(before, after) {
       return isSignedIn()
+        && before != null
+        && after != null
+        && before.players is list
+        && after.players is list
         && request.auth.uid == before.players[1]
         && before.state.status == "PENDING_ACCEPT"
         && (
@@ -105,7 +122,7 @@ service cloud.firestore {
       // Update: only participants, cannot change players/createdBy,
       // and status changes are restricted
       allow update: if isGamePlayer(resource.data)
-        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(["players", "createdBy"])
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(["id", "players", "createdBy", "createdAt"])
         && (
           // If status is not changing, allow (letters, turn, winner, etc.)
           !isStatusChange(resource.data, request.resource.data)
