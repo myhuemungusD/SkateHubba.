@@ -2,7 +2,7 @@ import { kv } from "@vercel/kv";
 
 export const runtime = "nodejs";
 
-export async function POST(req: Request) {
+export async function POST() {
   try {
     // Get two oldest players from sorted queue
     const players = (await kv.zrange("queue", 0, 1)) as string[];
@@ -22,6 +22,14 @@ export async function POST(req: Request) {
       createdAt: Date.now(),
     });
 
+    // Reverse pointers for fast lookup/cleanup
+    await kv.set(`lobbyFor:${playerA.uid}`, lobbyId, { ex: 3600 });
+    await kv.set(`lobbyFor:${playerB.uid}`, lobbyId, { ex: 3600 });
+    await kv.set(`inMatch:${playerA.uid}`, true, { ex: 3600 });
+    await kv.set(`inMatch:${playerB.uid}`, true, { ex: 3600 });
+    await kv.del(`ticketFor:${playerA.uid}`);
+    await kv.del(`ticketFor:${playerB.uid}`);
+
     await kv.zrem("queue", players[0]);
     await kv.zrem("queue", players[1]);
 
@@ -30,7 +38,8 @@ export async function POST(req: Request) {
       lobbyId,
       players: [playerA, playerB],
     });
-  } catch (err: any) {
-    return Response.json({ error: err.message }, { status: 500 });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return Response.json({ error: message }, { status: 500 });
   }
 }
