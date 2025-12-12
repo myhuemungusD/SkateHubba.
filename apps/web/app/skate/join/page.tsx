@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { auth } from "@utils/auth";
-import { collection, query, where, onSnapshot, or } from "firebase/firestore";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { firestore } from "@utils/firebaseClient";
 import { onAuthStateChanged, User } from "firebase/auth";
 import AuthButton from "../../components/AuthButton";
@@ -27,15 +27,9 @@ export default function JoinGamePage() {
     if (!currentUser) return;
 
     const gamesRef = collection(firestore, "games");
-    
-    // Query for games where user is challengerId OR defenderId
-    const q = query(
-      gamesRef, 
-      or(
-        where("challengerId", "==", currentUser.uid),
-        where("defenderId", "==", currentUser.uid)
-      )
-    );
+
+    // Game documents store participants in `players: [p1Uid, p2Uid]`
+    const q = query(gamesRef, where("players", "array-contains", currentUser.uid));
 
     const unsubscribeGames = onSnapshot(q, (snapshot) => {
       const gamesData: Game[] = [];
