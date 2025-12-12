@@ -1,4 +1,5 @@
 import { kv } from "@vercel/kv";
+import { asErrorMessage } from "../_utils";
 
 export const runtime = "nodejs";
 
@@ -20,7 +21,6 @@ export async function POST(req: Request) {
 
     return Response.json({ status: "queued", uid });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return Response.json({ error: message }, { status: 500 });
+    return Response.json({ error: asErrorMessage(err) }, { status: 500 });
   }
 }

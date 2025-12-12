@@ -1,4 +1,5 @@
 import { kv } from "@vercel/kv";
+import { asErrorMessage, parseMatchTicket } from "../_utils";
 
 export const runtime = "nodejs";
 
@@ -16,14 +17,8 @@ export async function POST(req: Request) {
       // Fallback (backward compat): scan the queue
       const tickets = (await kv.zrange("queue", 0, -1)) as string[];
       for (const t of tickets) {
-        try {
-          const data = JSON.parse(t);
-          if (data?.uid === uid) {
-            await kv.zrem("queue", t);
-          }
-        } catch {
-          // ignore malformed ticket
-        }
+        const parsed = parseMatchTicket(t);
+        if (parsed?.uid === uid) await kv.zrem("queue", t);
       }
     }
 
@@ -35,7 +30,6 @@ export async function POST(req: Request) {
 
     return Response.json({ status: "cancelled", uid });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return Response.json({ error: message }, { status: 500 });
+    return Response.json({ error: asErrorMessage(err) }, { status: 500 });
   }
 }

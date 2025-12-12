@@ -1,6 +1,6 @@
-import { kv } from "@vercel/kv";
-
 export const runtime = "edge";
+
+import { kv } from "@vercel/kv";
 
 export async function POST(req: Request) {
   try {
