@@ -1,33 +1,12 @@
-export const runtime = "nodejs";
+import { kv } from "@vercel/kv";
+import { NextRequest } from "next/server";
 
-import { NextResponse } from "next/server";
-import { initializeApp, getApps, applicationDefault } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
+export async function POST(req: NextRequest) {
+  const { uid } = await req.json();
 
-// Init Admin once
-if (!getApps().length) {
-  initializeApp({
-    credential: applicationDefault(),
-  });
-}
+  if (!uid) return new Response("Missing uid", { status: 400 });
 
-const db = getFirestore();
+  await kv.zrem("queue", uid);
 
-export async function POST(req: Request) {
-  try {
-    const { uid, ticketId } = await req.json();
-
-    if (!uid || !ticketId) {
-      return NextResponse.json(
-        { error: "Missing uid or ticketId" },
-        { status: 400 }
-      );
-    }
-
-    await db.collection("matchTickets").doc(ticketId).delete().catch(() => {});
-
-    return NextResponse.json({ status: "cancelled" });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
-  }
+  return Response.json({ ok: true });
 }

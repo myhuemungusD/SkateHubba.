@@ -1,37 +1,38 @@
-export const runtime = "nodejs";
+import { kv } from "@vercel/kv";
+import { NextRequest } from "next/server";
+import { v4 as uuid } from "uuid";
 
-import { NextResponse } from "next/server";
-import { initializeApp, getApps, applicationDefault } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
+export async function POST(req: NextRequest) {
+  const { uid } = await req.json();
 
-// Initialize Admin once
-if (!getApps().length) {
-  initializeApp({
-    credential: applicationDefault(),
-  });
-}
+  if (!uid) return new Response("Missing uid", { status: 400 });
 
-const db = getFirestore();
+  // Add user to queue
+  await kv.zadd("queue", { score: Date.now(), member: uid });
 
-export async function POST(req: Request) {
-  try {
-    const { uid, mode, skill } = await req.json();
+  // Try find opponent
+  const players = await kv.zrange<string>("queue", 0, 1);
 
-    if (!uid || !mode) {
-      return NextResponse.json({ error: "Missing uid or mode" }, { status: 400 });
-    }
-
-    const ticketRef = db.collection("matchTickets").doc();
-
-    await ticketRef.set({
-      uid,
-      mode,
-      skill: skill ?? 100,
-      createdAt: Date.now(),
-    });
-
-    return NextResponse.json({ ticketId: ticketRef.id, status: "searching" });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+  if (players.length < 2) {
+    return Response.json({ status: "waiting" });
   }
+
+  const [p1, p2] = players;
+
+  // Remove them from queue
+  await kv.zrem("queue", p1);
+  await kv.zrem("queue", p2);
+
+  const matchId = uuid();
+
+  await kv.hmset(`match:${matchId}`, {
+    players: JSON.stringify([p1, p2]),
+    createdAt: Date.now(),
+  });
+
+  return Response.json({
+    status: "matched",
+    matchId,
+    players: [p1, p2],
+  });
 }
