@@ -1,54 +1,40 @@
-"use client";
+'use client'
 
-import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { signInWithCustomToken } from "firebase/auth";
-import { auth } from "@utils/auth";
+import { useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { auth0ToFirebase } from '@/lib/auth/auth0-to-firebase'
 
-export default function AuthFinishPage() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+function FinishAuthInner() {
+  const router = useRouter()
+  const params = useSearchParams()
 
   useEffect(() => {
-    const token = searchParams.get("firebaseToken");
-    const next = searchParams.get("state") || "/";
-
-    const doLogin = async () => {
+    async function run() {
+      const token = params.get('token')
       if (!token) {
-        setError("Missing Firebase token");
-        setLoading(false);
-        return;
+        router.push('/')
+        return
       }
+
       try {
-        await signInWithCustomToken(auth, token);
-        router.replace(next);
+        await auth0ToFirebase(token)
+        router.push('/dashboard')
       } catch (err) {
-        console.error("Firebase sign-in failed", err);
-        setError("Login failed. Please try again.");
-        setLoading(false);
+        console.error(err)
+        router.push('/?error=auth_failed')
       }
-    };
+    }
 
-    void doLogin();
-  }, [router, searchParams]);
+    run()
+  }, [params, router])
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-white">
-        Completing sign-in...
-      </div>
-    );
-  }
+  return <p>Signing you in…</p>
+}
 
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-red-500">
-        {error}
-      </div>
-    );
-  }
-
-  return null;
+export default function FinishAuthPage() {
+  return (
+    <Suspense fallback={<p>Loading…</p>}>
+      <FinishAuthInner />
+    </Suspense>
+  )
 }

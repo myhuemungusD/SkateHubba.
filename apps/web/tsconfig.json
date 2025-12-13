@@ -19,6 +19,7 @@
     "jsx": "react-jsx",
     "baseUrl": ".",
     "paths": {
+      "@/*": ["./*"],
       "@ui/*": ["../../packages/ui/*"],
       "@skatehubba/types": ["../../packages/types/index.ts"],
       "@skate-types/*": ["../../packages/types/*"],
