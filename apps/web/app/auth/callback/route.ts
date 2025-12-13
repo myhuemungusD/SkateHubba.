@@ -14,7 +14,7 @@ export async function GET(req: Request) {
   const domain = process.env.AUTH0_DOMAIN;
   const clientId = process.env.AUTH0_CLIENT_ID;
   const clientSecret = process.env.AUTH0_CLIENT_SECRET;
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? url.origin;
 
   if (!domain || !clientId || !clientSecret || !siteUrl) {
     return NextResponse.json({ error: "Missing Auth0 environment variables" }, { status: 500 });
@@ -45,27 +45,8 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Missing access token" }, { status: 500 });
   }
 
-  // Convert Auth0 access token → Firebase custom token via internal API
-  const firebaseRes = await fetch(`${siteUrl}/api/auth/auth0-to-firebase`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ auth0Token }),
-  });
-
-  if (!firebaseRes.ok) {
-    const text = await firebaseRes.text();
-    return NextResponse.json({ error: "Failed to create Firebase token", detail: text }, { status: 500 });
-  }
-
-  const firebaseData = await firebaseRes.json();
-  const firebaseToken = firebaseData.firebaseToken as string | undefined;
-
-  if (!firebaseToken) {
-    return NextResponse.json({ error: "Missing Firebase token" }, { status: 500 });
-  }
-
   const redirectTarget = new URL(`/auth/finish`, siteUrl);
-  redirectTarget.searchParams.set("firebaseToken", firebaseToken);
+  redirectTarget.searchParams.set("token", auth0Token);
   if (state) redirectTarget.searchParams.set("state", state);
 
   return NextResponse.redirect(redirectTarget);

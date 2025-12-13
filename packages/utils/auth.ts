@@ -34,7 +34,12 @@ export const login = () => {
 };
 
 // Preferred name used by the web app UI
-export const loginWithAuth0 = login;
+export const loginWithAuth0 = () => {
+  if (typeof window === "undefined") return;
+
+  const returnTo = `${window.location.pathname}${window.location.search}`;
+  window.location.href = `/api/auth/login?returnTo=${encodeURIComponent(returnTo)}`;
+};
 
 export const logout = () => {
   if (typeof window === "undefined") return;

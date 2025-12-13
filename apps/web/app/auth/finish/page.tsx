@@ -11,6 +11,8 @@ function FinishAuthInner() {
   useEffect(() => {
     async function run() {
       const token = params.get('token')
+      const state = params.get('state')
+      const next = state && state.startsWith('/') ? state : '/'
       if (!token) {
         router.push('/')
         return
@@ -18,7 +20,7 @@ function FinishAuthInner() {
 
       try {
         await auth0ToFirebase(token)
-        router.push('/dashboard')
+        router.push(next)
       } catch (err) {
         console.error(err)
         router.push('/?error=auth_failed')

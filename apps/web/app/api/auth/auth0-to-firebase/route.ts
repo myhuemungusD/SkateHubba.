@@ -4,21 +4,30 @@ import { getFirebaseAdmin } from "../../../../lib/firebase/admin";
 
 export const runtime = "nodejs";
 
-const AUTH0_DOMAIN = process.env.AUTH0_DOMAIN!;
-const JWKS = jose.createRemoteJWKSet(
-  new URL(`https://${AUTH0_DOMAIN}/.well-known/jwks.json`)
-);
-
 export async function POST(req: Request) {
   try {
+    const auth0Domain = process.env.AUTH0_DOMAIN;
+    const auth0Audience = process.env.AUTH0_AUDIENCE;
+
+    if (!auth0Domain || !auth0Audience) {
+      return NextResponse.json(
+        { error: "Missing Auth0 environment variables" },
+        { status: 500 }
+      );
+    }
+
+    const JWKS = jose.createRemoteJWKSet(
+      new URL(`https://${auth0Domain}/.well-known/jwks.json`)
+    );
+
     const { auth0Token } = await req.json();
     if (!auth0Token) {
       return NextResponse.json({ error: "Missing token" }, { status: 400 });
     }
 
     const { payload } = await jose.jwtVerify(auth0Token, JWKS, {
-      issuer: `https://${AUTH0_DOMAIN}/`,
-      audience: process.env.AUTH0_AUDIENCE!,
+      issuer: `https://${auth0Domain}/`,
+      audience: auth0Audience,
     });
 
     const roles = (payload["https://skatehubba.com/roles"] as string[]) || [];
