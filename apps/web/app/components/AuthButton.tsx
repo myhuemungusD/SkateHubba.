@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
-import { signInGoogle, signInGuest, logout } from "@utils/auth";
+import { login, logout } from "@utils/auth";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { auth } from "@utils/auth";
 import { doc, setDoc, getDoc, updateDoc } from "firebase/firestore";
@@ -99,37 +99,13 @@ export default function AuthButton() {
     );
   }
 
-  const handleGoogleLogin = async () => {
-    try {
-      await signInGoogle();
-    } catch (error) {
-      console.error("Google Login failed:", error);
-      alert(`Login failed: ${(error as Error).message}`);
-    }
-  };
-
-  const handleGuestLogin = async () => {
-    try {
-      await signInGuest();
-    } catch (error) {
-      console.error("Guest Login failed:", error);
-      alert(`Guest login failed: ${(error as Error).message}`);
-    }
-  };
-
   return (
     <div className="flex gap-2">
       <button
-        onClick={handleGuestLogin}
-        className="bg-gray-800 text-white font-bold px-4 py-2 rounded hover:bg-gray-700 transition-colors border border-gray-700"
+        onClick={login}
+        className="bg-white text-black font-bold px-4 py-2 rounded hover:bg-gray-200 transition-colors border border-gray-300"
       >
-        Guest
-      </button>
-      <button
-        onClick={handleGoogleLogin}
-        className="bg-white text-black font-bold px-4 py-2 rounded hover:bg-gray-200 transition-colors"
-      >
-        Google
+        Sign in with Auth0
       </button>
     </div>
   );

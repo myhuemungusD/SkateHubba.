@@ -4,10 +4,20 @@ service cloud.firestore {
 
     // --- EXISTING RULES ---
 
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function hasAnyRole(allowed) {
+      return isSignedIn()
+        && request.auth.token.roles is list
+        && request.auth.token.roles.hasAny(allowed);
+    }
+
     // Users collection
     match /users/{userId} {
-      allow read: if true;
-      allow write: if request.auth != null && request.auth.uid == userId;
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && request.auth.uid == userId;
     }
 
     // Tricks collection
@@ -37,16 +47,22 @@ service cloud.firestore {
 
     // User presence
     match /presence/{userId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null
+      allow read: if isSignedIn();
+      allow write: if isSignedIn()
                    && request.auth.uid == userId;
     }
 
-    // --- HELPERS FOR GAME OF SKATE ---
-
-    function isSignedIn() {
-      return request.auth != null;
+    // Role-gated examples from Auth setup
+    match /reports/{id} {
+      allow read, write: if hasAnyRole(['moderator', 'admin']);
     }
+
+    match /spots/{id} {
+      allow create: if hasAnyRole(['verified_pro']);
+      allow update, delete: if hasAnyRole(['admin']);
+    }
+
+    // --- HELPERS FOR GAME OF SKATE ---
 
     // Game docs have:
     // players: [p1Uid, p2Uid]
